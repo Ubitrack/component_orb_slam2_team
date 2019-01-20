@@ -68,6 +68,7 @@
 #include <ORBVocabulary.h>
 #include <MapperServer.h>
 #include <Tracking.h>
+#include <FrameDrawer.h>
 
   //#include <RotationHelpers.h>
 
@@ -76,6 +77,8 @@ using namespace Ubitrack::Vision;
 
 namespace Ubitrack {
    namespace Components {
+
+      using namespace ORB_SLAM2_TEAM;
 
       // get a logger
       static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Vision.OrbSlam2TeamStereo"));
@@ -112,11 +115,11 @@ namespace Ubitrack {
       protected:
 
          // the ports
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImgGrayL;
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImgGrayR;
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
          //Dataflow::PullConsumer< Measurement::Matrix3x3 > m_inIntrinsics;
          //Dataflow::PushConsumer< Measurement::Button> m_eventIn;
-         Dataflow::PullConsumer<Measurement::Pose> m_pullCameraPose;
+         //Dataflow::PullConsumer<Measurement::Pose> m_pullCameraPose;
 
          Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
@@ -132,7 +135,7 @@ namespace Ubitrack {
          Math::Vector3d m_head2Eye;
          int m_initCount = 0;
 
-         double m_minLikelihood;
+         string m_debugWindowName;
          int m_maxDelay;
          int m_imageHeight;
          int m_imageWidth;
@@ -145,24 +148,23 @@ namespace Ubitrack {
          // for debugging - prints the image format of the given image
          void printPixelFormat(Measurement::ImageMeasurement image);
 
-         static ORB_SLAM2_TEAM::ORBVocabulary * m_vocab;
-         static ORB_SLAM2_TEAM::Mapper * m_mapper;
-         ORB_SLAM2_TEAM::Tracking * m_tracker;
-         ORB_SLAM2_TEAM::FrameDrawer * m_frameDrawer;
+         static ORBVocabulary * m_vocab;
+         static Mapper * m_mapper;
+         Tracking * m_tracker;
+         FrameDrawer * m_frameDrawer;
 
       };
 
-      ORB_SLAM2_TEAM::ORBVocabulary * OrbSlam2TeamStereo::m_vocab = NULL;
-      ORB_SLAM2_TEAM::Mapper * OrbSlam2TeamStereo::m_mapper = NULL;
-      using namespace ORB_SLAM2_TEAM;
+      ORBVocabulary * OrbSlam2TeamStereo::m_vocab = NULL;
+      Mapper * OrbSlam2TeamStereo::m_mapper = NULL;
 
       OrbSlam2TeamStereo::OrbSlam2TeamStereo(const std::string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
          : Dataflow::TriggerComponent(sName, subgraph)
-         , m_inImgGrayL("ImageInputGrayL", *this)
-         , m_inImgGrayR("ImageInputGrayR", *this)
+         , m_inImageL("ImageInputL", *this)
+         , m_inImageR("ImageInputR", *this)
          //, m_inIntrinsics("Intrinsics", *this)
          //, m_eventIn("EventIn", *this, boost::bind(&OrbSlam2TeamStereo::buttonEvent, this, _1))
-         , m_pullCameraPose("CameraPose", *this)
+         //, m_pullCameraPose("CameraPose", *this)
          , m_pushImgDebugL("ImageDebugL", *this)
          , m_outPose("Output", *this)
          , m_pushErrorPose("OutputError", *this)
@@ -177,6 +179,7 @@ namespace Ubitrack {
          , m_tracker(NULL)
       {
          subgraph->m_DataflowAttributes.getAttributeData("maxDelay", m_maxDelay);
+         subgraph->m_DataflowAttributes.getAttributeData("debugWindowName", m_debugWindowName);
 
          std::string settingsFileName;
          if (subgraph->m_DataflowAttributes.hasAttribute("settingsFile"))
@@ -206,25 +209,25 @@ namespace Ubitrack {
 
          if (m_vocab == NULL)
          {
-            m_vocab = new ORB_SLAM2_TEAM::ORBVocabulary();
+            m_vocab = new ORBVocabulary();
             m_vocab->loadFromFile(vocabularyFileName);
          }
 
          if (m_mapper == NULL)
          {
-            m_mapper = new ORB_SLAM2_TEAM::MapperServer(*m_vocab, false, 2);
+            m_mapper = new MapperServer(*m_vocab, false, 2);
          }
 
          cv::FileStorage settings(settingsFileName, cv::FileStorage::READ);
          if (m_pushImgDebugL.isConnected())
          {
-            m_frameDrawer = new ORB_SLAM2_TEAM::FrameDrawer(settings);
-            m_tracker = new ORB_SLAM2_TEAM::Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, SensorType::STEREO);
+            m_frameDrawer = new FrameDrawer(settings);
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, SensorType::STEREO);
          }
          else
          {
             m_frameDrawer = NULL;
-            m_tracker = new ORB_SLAM2_TEAM::Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
          }
       }
 
@@ -277,41 +280,60 @@ namespace Ubitrack {
       void OrbSlam2TeamStereo::compute(Measurement::Timestamp t)
       {
          UBITRACK_TIME(m_timerAll);
-         //printPixelFormat(imageRGB);
 
-         Measurement::ImageMeasurement imageGrayL = m_inImgGrayL.get();
-         Measurement::ImageMeasurement imageGrayR = m_inImgGrayR.get();
+         Measurement::ImageMeasurement inImageL = m_inImageL.get();
+         Measurement::ImageMeasurement inImageR = m_inImageR.get();
+         printPixelFormat(inImageL);
 
-         cv::Mat destGrayL, destGrayR;
-         if (imageGrayL->origin() == 0) {
-            destGrayL = imageGrayL->Mat();
+         cv::Mat matImageL, matImageR;
+         if (inImageL->origin() == 0) {
+            matImageL = inImageL->Mat();
          }
          else {
             // the input image is flipped vertically
-            cv::flip(imageGrayL->Mat(), destGrayL, 0);
+            cv::flip(inImageL->Mat(), matImageL, 0);
             //LOG4CPP_WARN(logger, "Left input image is flipped. Consider flipping in the driver to improve performance.");
          }
-         if (imageGrayR->origin() == 0) {
-            destGrayR = imageGrayR->Mat();
+         if (inImageR->origin() == 0) {
+            matImageR = inImageR->Mat();
          }
          else {
             // the input image is flipped vertically
-            cv::flip(imageGrayR->Mat(), destGrayR, 0);
+            cv::flip(inImageR->Mat(), matImageR, 0);
             //LOG4CPP_WARN(logger, "Right input image is flipped. Consider flipping in the driver to improve performance.");
          }
 
          Measurement::Timestamp before;
          Measurement::Timestamp after;
+         cv::Mat trackerPose;
          {
             UBITRACK_TIME(m_timerTracking);
 
             // pass the image to ORB-SLAM2-TEAM
             before = Measurement::now();
-            m_tracker->GrabImageStereo(destGrayL, destGrayR, t);
+            trackerPose = m_tracker->GrabImageStereo(matImageL, matImageR, t);
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_maxDelay?
+
+         Math::Matrix<double, 0Ui64, 0Ui64> mathMat = Math::Matrix<double, 0Ui64, 0Ui64>(4, 4);
+         if (!trackerPose.empty())
+         {
+            for (short i = 0; i < 4; i++)
+               for (short j = 0; j < 4; j++)
+                  mathMat.at_element(0, 0) = trackerPose.at<double>(i, j);
+         }
+         Math::Pose mathPose = Math::Pose(mathMat);
+         Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
+         m_outPose.send(measurementPose);
+
+
+         cv::imshow("m_debugWindowName", m_frameDrawer->DrawFrame());
+         if (!m_debugWindowName.empty())
+         {
+            cv::imshow(m_debugWindowName, m_frameDrawer->DrawFrame());
+         }
 
          if (m_pushImgDebugL.isConnected())
          {

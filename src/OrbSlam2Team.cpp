@@ -117,9 +117,6 @@ namespace Ubitrack {
          // the ports
          Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
          Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
-         //Dataflow::PullConsumer< Measurement::Matrix3x3 > m_inIntrinsics;
-         //Dataflow::PushConsumer< Measurement::Button> m_eventIn;
-         //Dataflow::PullConsumer<Measurement::Pose> m_pullCameraPose;
 
          Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
@@ -129,16 +126,9 @@ namespace Ubitrack {
 
          Util::BlockTimer m_timerTracking;
          Util::BlockTimer m_timerAll;
-         bool m_LastDetection_success;
-         bool m_isTracking;
+         string m_settingsFileName;
 
-         Math::Vector3d m_head2Eye;
-         int m_initCount = 0;
-
-         string m_debugWindowName;
          int m_maxDelay;
-         int m_imageHeight;
-         int m_imageWidth;
 
          // additional covariance
          double m_addErrorX;
@@ -162,16 +152,11 @@ namespace Ubitrack {
          : Dataflow::TriggerComponent(sName, subgraph)
          , m_inImageL("ImageInputL", *this)
          , m_inImageR("ImageInputR", *this)
-         //, m_inIntrinsics("Intrinsics", *this)
-         //, m_eventIn("EventIn", *this, boost::bind(&OrbSlam2TeamStereo::buttonEvent, this, _1))
-         //, m_pullCameraPose("CameraPose", *this)
          , m_pushImgDebugL("ImageDebugL", *this)
          , m_outPose("Output", *this)
          , m_pushErrorPose("OutputError", *this)
          , m_timerTracking("OrbSlam2TeamStereo.Tracking", logger)
          , m_timerAll("OrbSlam2TeamStereo.All", logger)
-         , m_LastDetection_success(false)
-         , m_isTracking(false)
          , m_maxDelay(30)
          , m_addErrorX(0.0)
          , m_addErrorY(0.0)
@@ -179,13 +164,11 @@ namespace Ubitrack {
          , m_tracker(NULL)
       {
          subgraph->m_DataflowAttributes.getAttributeData("maxDelay", m_maxDelay);
-         subgraph->m_DataflowAttributes.getAttributeData("debugWindowName", m_debugWindowName);
 
-         std::string settingsFileName;
          if (subgraph->m_DataflowAttributes.hasAttribute("settingsFile"))
          {
-            settingsFileName = subgraph->m_DataflowAttributes.getAttributeString("settingsFile");
-            LOG4CPP_INFO(logger, "Settings File: " << settingsFileName);
+            m_settingsFileName = subgraph->m_DataflowAttributes.getAttributeString("settingsFile");
+            LOG4CPP_INFO(logger, "Settings File: " << m_settingsFileName);
          }
          else
          {
@@ -218,17 +201,6 @@ namespace Ubitrack {
             m_mapper = new MapperServer(*m_vocab, false, 2);
          }
 
-         cv::FileStorage settings(settingsFileName, cv::FileStorage::READ);
-         if (m_pushImgDebugL.isConnected())
-         {
-            m_frameDrawer = new FrameDrawer(settings);
-            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, SensorType::STEREO);
-         }
-         else
-         {
-            m_frameDrawer = NULL;
-            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
-         }
       }
 
       OrbSlam2TeamStereo::~OrbSlam2TeamStereo()
@@ -243,34 +215,34 @@ namespace Ubitrack {
          switch (image->pixelFormat())
          {
          case Image::LUMINANCE:
-            LOG4CPP_INFO(logger, "Image::LUMINANCE");
+            LOG4CPP_DEBUG(logger, "Image::LUMINANCE");
             break;
          case Image::RGB:
-            LOG4CPP_INFO(logger, "Image::RGB");
+            LOG4CPP_DEBUG(logger, "Image::RGB");
             break;
          case Image::BGR:
-            LOG4CPP_INFO(logger, "Image::BGR");
+            LOG4CPP_DEBUG(logger, "Image::BGR");
             break;
          case Image::RGBA:
-            LOG4CPP_INFO(logger, "Image::RGBA");
+            LOG4CPP_DEBUG(logger, "Image::RGBA");
             break;
          case Image::BGRA:
-            LOG4CPP_INFO(logger, "Image::BGRA");
+            LOG4CPP_DEBUG(logger, "Image::BGRA");
             break;
          case Image::YUV422:
-            LOG4CPP_INFO(logger, "Image::YUV422");
+            LOG4CPP_DEBUG(logger, "Image::YUV422");
             break;
          case Image::YUV411:
-            LOG4CPP_INFO(logger, "Image::YUV411");
+            LOG4CPP_DEBUG(logger, "Image::YUV411");
             break;
          case Image::RAW:
-            LOG4CPP_INFO(logger, "Image::RAW");
+            LOG4CPP_DEBUG(logger, "Image::RAW");
             break;
          case Image::DEPTH:
-            LOG4CPP_INFO(logger, "Image::DEPTH");
+            LOG4CPP_DEBUG(logger, "Image::DEPTH");
             break;
          case Image::UNKNOWN_PIXELFORMAT:
-            LOG4CPP_INFO(logger, "Image::UNKNOWN_PIXELFORMAT");
+            LOG4CPP_DEBUG(logger, "Image::UNKNOWN_PIXELFORMAT");
             break;
          default:
             break;
@@ -328,13 +300,6 @@ namespace Ubitrack {
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
          m_outPose.send(measurementPose);
 
-
-         cv::imshow("m_debugWindowName", m_frameDrawer->DrawFrame());
-         if (!m_debugWindowName.empty())
-         {
-            cv::imshow(m_debugWindowName, m_frameDrawer->DrawFrame());
-         }
-
          if (m_pushImgDebugL.isConnected())
          {
             Vision::Image img(m_frameDrawer->DrawFrame());
@@ -346,6 +311,18 @@ namespace Ubitrack {
       void OrbSlam2TeamStereo::start()
       {
          Component::start();
+
+         cv::FileStorage settings(m_settingsFileName, cv::FileStorage::READ);
+         if (m_pushImgDebugL.isConnected())
+         {
+            m_frameDrawer = new FrameDrawer(settings);
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, SensorType::STEREO);
+         }
+         else
+         {
+            m_frameDrawer = NULL;
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
+         }
       }
 
 
@@ -361,3 +338,110 @@ UBITRACK_REGISTER_COMPONENT(Dataflow::ComponentFactory* const cf) {
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamStereo >("OrbSlam2TeamStereo");
 }
 
+
+//#include <utDataflow/Module.h>
+//
+//// Module Key
+//MAKE_NODEATTRIBUTEKEY_DEFAULT( MapperKey, int, "Origin", "mapperId", 1 );
+//
+//// Component Key
+//class TrackerKey
+//{
+//public:
+//   TrackerKey(boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+//   {
+//      Graph::UTQLSubgraph::EdgePtr config;
+//
+//      if ( subgraph->hasEdge( "Output" ) )
+//         config = subgraph->getEdge( "Output" );
+//
+//      if ( !config )
+//      {
+//         UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Output\" edge");
+//      }
+//
+//      config->getAttributeData( "artBodyId", m_body );
+//      if ( m_body <= 0 )
+//         UBITRACK_THROW( "Missing or invalid \"artBodyId\" attribute on \"ArtToTarget\" resp. \"fingerHandOutput\" edge" );
+//
+//      std::string typeString = config->getAttributeString( "artType" );
+//      if ( typeString.empty() )
+//      {
+//         // no explicit art target type information. so we assume 6D
+//         m_targetType = target_6d;
+//      }
+//      else
+//      {
+//         if ( typeString == "6d" )
+//            m_targetType = target_6d;
+//         else if ( typeString == "6df" )
+//            m_targetType = target_6d_flystick;
+//         else if ( typeString == "6dmt" )
+//            m_targetType = target_6d_measurement_tool;
+//         else if ( typeString == "6dmtr" )
+//            m_targetType = target_6d_measurement_tool_reference;
+//         else if ( typeString == "3dcloud" )
+//         {
+//            m_targetType = target_3dcloud;
+//            m_body = 0;
+//         }
+//         else if ( typeString == "finger" )
+//         {
+//            m_targetType = target_finger;
+//
+//            /*
+//            Graph::UTQLSubgraph::NodePtr configNode = config->m_Target.lock();
+//
+//            std::string fingerString = configNode->getAttributeString( "finger" );
+//
+//            if (fingerString.length() == 0)
+//            UBITRACK_THROW( "Art finger target without finger id" );
+//
+//            if ( fingerString == "hand" )
+//            m_fingerType = finger_hand;
+//            else if ( fingerString == "thumb" )
+//            m_fingerType = finger_thumb;
+//            else if ( fingerString == "index" )
+//            m_fingerType = finger_index;
+//            else if ( fingerString == "middle" )
+//            m_fingerType = finger_middle;
+//            else
+//            UBITRACK_THROW( "Art finger target with unknown finger type: " + fingerString );
+//            */
+//
+//            std::string fingerSideString = config->getAttributeString( "fingerSide" );
+//            if (fingerSideString.length() == 0)
+//               UBITRACK_THROW( "Art finger target without finger side" );
+//
+//            if ( fingerSideString == "left" )
+//               m_fingerSide = side_left;
+//            else if ( fingerSideString == "right" )
+//               m_fingerSide = side_right;
+//            else
+//               UBITRACK_THROW( "Art finger target with unknown finger side: " + fingerSideString );
+//
+//         }
+//         else
+//            UBITRACK_THROW( "Art target with unknown target type: " + typeString );
+//      }
+//   }
+//};
+//
+//class OrbSlam2TeamTracker; // Component
+//
+//class OrbSlam2TeamMapper
+//   : public Dataflow::Module< MapperKey, TrackerKey, OrbSlam2TeamMapper, OrbSlam2TeamTracker >
+//{
+//public:
+//
+//   // override factory method to create components
+//   // see: component_vision::MarkerTracker
+//   boost::shared_ptr< MarkerTrackerBase > createComponent( const std::string& type, const std::string& name,
+//      boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const ComponentKey& key, ModuleClass* pModule );
+//};
+//
+//class OrbSlam2TeamTracker
+//   : public OrbSlam2TeamMapper::Component
+//{
+//
+//};

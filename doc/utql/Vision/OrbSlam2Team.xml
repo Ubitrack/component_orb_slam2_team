@@ -30,30 +30,48 @@
 				<Predicate>type=='Image'</Predicate>
 			</Edge>
 		</Input>
-		<Output>
-			<Node name="Origin" displayName="Map Origin" />
-			<Node name="ImagePlaneDebugL" displayName="Image Plane Debug Left" />
-			<Edge name="Output" source="Origin" destination="CameraL" displayName="Camera Left Pose">
-				<Description>
-					<h:p></h:p>
-				</Description>
-				<Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
-			</Edge>	
-			<Edge name="OutputError" source="Origin" destination="CameraL" displayName="Camera Left Error Pose">
-				<Description>
-					<h:p></h:p>
-				</Description>
-				<Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
-				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
-			</Edge>
-			<Edge name="ImageDebugL" source="CameraL" destination="ImagePlaneDebugL" displayName="Image Debug Left">
-				<Description>
-					<h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
-				</Description>
-				<Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
-				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
-			</Edge>
-		</Output>
+    <Output>
+      <Node name="Mapper" displayName="Mapper Origin">
+        <Attribute name="mapperId" displayName="Mapper ID" min="1" max="20" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Unique identifier for the Mapper</p>
+          </Description>
+        </Attribute>
+        <Attribute name="vocabularyFile" default="" displayName="Vocabulary File" xsi:type="PathAttributeDeclarationType">
+          <Description>
+            <h:p>
+              Required: Path and file name of the vocabulary file. For example: <h:code>ORB_SLAM2_TEAM/Vocabulary/ORBvoc.bin</h:code>
+            </h:p>
+          </Description>
+        </Attribute>
+        <Attribute name="maxTrackers" displayName="Maximum Tracker Quantity" min="1" max="10" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Maximum number of trackers in the SRG</p>
+          </Description>
+        </Attribute>
+      </Node>
+      <Node name="ImagePlaneDebugL" displayName="Image Plane Debug Left" />
+      <Edge name="Output" source="Mapper" destination="CameraL" displayName="Camera Left Pose">
+        <Description>
+          <h:p></h:p>
+        </Description>
+        <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="OutputError" source="Mapper" destination="CameraL" displayName="Camera Left Error Pose">
+        <Description>
+          <h:p></h:p>
+        </Description>
+        <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="ImageDebugL" source="CameraL" destination="ImagePlaneDebugL" displayName="Image Debug Left">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+        <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+    </Output>
 
       <Constraints>
          <TriggerGroup>
@@ -70,19 +88,9 @@
                <h:p>Required: Path and file name of the settings file. For example: <h:code>ORB_SLAM2_TEAM/Examples/Stereo/EuRoC.yaml</h:code></h:p>
                </Description>
          </Attribute>
-         <Attribute name="vocabularyFile" default="" displayName="Vocabulary File" xsi:type="PathAttributeDeclarationType">
-             <Description>
-               <h:p>Required: Path and file name of the vocabulary file. For example: <h:code>ORB_SLAM2_TEAM/Vocabulary/ORBvoc.bin</h:code></h:p>
-               </Description>
-         </Attribute>
          <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
             <Description>
                <h:p>Maximum Delay in ms</h:p>
-            </Description>
-         </Attribute>
-         <Attribute name="debugWindowName" default="" xsi:type="StringAttributeDeclarationType" displayName="Debug Window Name">
-            <Description>
-               <h:p>Unique window name (within the dfg). If empty, no window is displayed.</h:p>
             </Description>
          </Attribute>
          <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">

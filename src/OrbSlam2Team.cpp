@@ -40,6 +40,7 @@
 #include <boost/scoped_array.hpp>
 #include <boost/numeric/ublas/blas.hpp>
 
+#include <utDataflow/Module.h>
 #include <utDataflow/PushSupplier.h>
 #include <utDataflow/PullSupplier.h>
 #include <utDataflow/Component.h>
@@ -70,7 +71,7 @@
 #include <Tracking.h>
 #include <FrameDrawer.h>
 
-  //#include <RotationHelpers.h>
+//#include <RotationHelpers.h>
 
 using namespace Ubitrack;
 using namespace Ubitrack::Vision;
@@ -81,43 +82,122 @@ namespace Ubitrack {
       using namespace ORB_SLAM2_TEAM;
 
       // get a logger
-      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Vision.OrbSlam2TeamStereo"));
+      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Vision.OrbSlam2Team"));
+
+
+      class OrbSlam2TeamComponent;
+
+
+      // Module Key
+      MAKE_NODEATTRIBUTEKEY_DEFAULT( MapperKey, int, "Mapper", "mapperId", 1 );
+
+
+      // Component Key
+      class TrackerKey
+      {
+      public:
+         TrackerKey(boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+         {
+            // the subgraph should be one of the OrbSlam2Team patterns
+            // the ID should be a unique string such as "pattern_19"
+            m_id = subgraph->m_ID;
+
+            if (m_id.empty())
+            {
+               ostringstream s;
+               s << "Missing or invalid \"id\" attribute on " << subgraph->m_Name << " pattern";
+               UBITRACK_THROW(s.str());
+            }
+         }
+
+         // less than operator for map
+         bool operator<(const TrackerKey & rVal) const
+         {
+            return m_id < rVal.m_id;
+         }
+
+      private:
+         string m_id;
+      };
+
+
+      class OrbSlam2TeamModule
+         : public Dataflow::Module< MapperKey, TrackerKey, OrbSlam2TeamModule, OrbSlam2TeamComponent >
+      {
+      public:
+
+         /** UTQL constructor */
+         OrbSlam2TeamModule( const MapperKey& key, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory );
+
+         virtual void startModule();
+
+         virtual void stopModule();
+
+         // override factory method to create components
+         boost::shared_ptr<OrbSlam2TeamComponent> createComponent( const string& type, const string& name,
+            boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& key, OrbSlam2TeamModule* pModule );
+
+         ORBVocabulary * m_vocab;
+
+         MapperServer * m_mapper;
+
+      private:
+         string m_vocabularyFilePath;
+         bool m_mono;
+         unsigned int m_maxTrackers;
+      };
+
+      // can't use the module-component technique until Module supports TriggerComponent
+      class OrbSlam2TeamComponent
+         : public OrbSlam2TeamModule::Component
+      {
+      public:
+         OrbSlam2TeamComponent(const string& name, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& componentKey, OrbSlam2TeamModule* module)
+            : OrbSlam2TeamModule::Component(name, componentKey, module)
+         {
+            if (module)
+            {
+               m_vocab = module->m_vocab;
+               m_mapper = module->m_mapper;
+            }
+            else
+               UBITRACK_THROW("OrbSlam2TeamComponent::OrbSlam2TeamComponent : module is null");
+         }
+
+      //protected:
+         ORBVocabulary * m_vocab;
+         Mapper * m_mapper;
+      };
+
 
       /**
-       * @ingroup vision_components
-       *
-       * @par Input Ports
-       * None.
-       *
-       * @par Output Ports
-       * \c Output push port of type Ubitrack::Measurement::ImageMeasurement.
-       *
-       */
+      * @ingroup vision_components
+      *
+      * @par Input Ports
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInputL
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInputR
+      *
+      * @par Output Ports
+      * \c Ubitrack::Measurement::Pose Output
+      * \c Ubitrack::Measurement::ErrorPose OutputError 
+      */
       class OrbSlam2TeamStereo
          : public Dataflow::TriggerComponent
       {
       public:
 
-         /** constructor */
-         OrbSlam2TeamStereo(const std::string& sName, boost::shared_ptr< Graph::UTQLSubgraph >);
+         OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
 
-         /** destructor, waits until thread stops */
-         ~OrbSlam2TeamStereo();
+         virtual void start();
 
-         /** starts the camera */
-         void start();
-
-         /** stops the camera */
-         void stop();
+         virtual void stop();
 
          void compute(Measurement::Timestamp t);
 
       protected:
 
-         // the ports
          Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
          Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
-
          Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
          Dataflow::PushSupplier< Measurement::ErrorPose > m_pushErrorPose;
@@ -126,10 +206,8 @@ namespace Ubitrack {
 
          Util::BlockTimer m_timerTracking;
          Util::BlockTimer m_timerAll;
-         string m_settingsFileName;
-
          int m_maxDelay;
-
+         
          // additional covariance
          double m_addErrorX;
          double m_addErrorY;
@@ -138,17 +216,20 @@ namespace Ubitrack {
          // for debugging - prints the image format of the given image
          void printPixelFormat(Measurement::ImageMeasurement image);
 
-         static ORBVocabulary * m_vocab;
-         static Mapper * m_mapper;
+         string m_settingsFileName;
          Tracking * m_tracker;
          FrameDrawer * m_frameDrawer;
 
+         static boost::shared_ptr<ORBVocabulary> m_vocab;
+         static boost::shared_ptr<Mapper> m_mapper;
+         static unsigned int m_maxTrackers;
       };
 
-      ORBVocabulary * OrbSlam2TeamStereo::m_vocab = NULL;
-      Mapper * OrbSlam2TeamStereo::m_mapper = NULL;
+      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamStereo::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
+      boost::shared_ptr<Mapper> OrbSlam2TeamStereo::m_mapper = boost::shared_ptr<Mapper>(NULL);
+      unsigned int OrbSlam2TeamStereo::m_maxTrackers = 0;
 
-      OrbSlam2TeamStereo::OrbSlam2TeamStereo(const std::string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+      OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
          : Dataflow::TriggerComponent(sName, subgraph)
          , m_inImageL("ImageInputL", *this)
          , m_inImageR("ImageInputR", *this)
@@ -172,41 +253,58 @@ namespace Ubitrack {
          }
          else
          {
-            std::ostringstream os;
+            ostringstream os;
             os << "ORB-SLAM2-TEAM Settings File is required, but was not provided!";
             UBITRACK_THROW(os.str());
          }
 
-         std::string vocabularyFileName;
-         if (subgraph->m_DataflowAttributes.hasAttribute("vocabularyFile"))
+         if (!m_mapper)
          {
-            vocabularyFileName = subgraph->m_DataflowAttributes.getAttributeString("vocabularyFile");
-            LOG4CPP_INFO(logger, "Vocabulary File: " << vocabularyFileName);
-         }
-         else
-         {
-            std::ostringstream os;
-            os << "ORB-SLAM2-TEAM Vocabulary File is required, but was not provided!";
-            UBITRACK_THROW(os.str());
+            Graph::UTQLSubgraph::NodePtr nodeMapper;
+            if (subgraph->hasNode("Mapper"))
+               nodeMapper = subgraph->getNode("Mapper");
+            if (!nodeMapper)
+               UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Mapper\" node");
+
+            string vocabularyFilePath;
+            if (nodeMapper->hasAttribute("vocabularyFile"))
+            {
+               nodeMapper->getAttributeData("vocabularyFile", vocabularyFilePath);
+               LOG4CPP_INFO(logger, "Vocabulary File: " << vocabularyFilePath);
+               if (vocabularyFilePath.empty())
+               {
+                  ostringstream os;
+                  os << "ORB-SLAM2-TEAM Vocabulary File is required, but was not provided!";
+                  UBITRACK_THROW(os.str());
+               }
+            }
+            else
+            {
+               UBITRACK_THROW( "Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node" );
+            }
+
+            m_vocab = boost::shared_ptr<ORBVocabulary>(new ORBVocabulary());
+            m_vocab->loadFromFile(vocabularyFilePath);
+
+            if (nodeMapper->hasAttribute("maxTrackers"))
+            {
+               nodeMapper->getAttributeData("maxTrackers", m_maxTrackers);
+               LOG4CPP_INFO(logger, "Maximum Trackers: " << m_maxTrackers);
+               if (m_maxTrackers < 1)
+               {
+                  ostringstream os;
+                  os << "Maximum Trackers must be at least 1!";
+                  UBITRACK_THROW(os.str());
+               }
+            }
+            else
+            {
+               UBITRACK_THROW( "Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node" );
+            }
+
+            m_mapper = boost::shared_ptr<Mapper>(new MapperServer(*m_vocab, false, m_maxTrackers));
          }
 
-         if (m_vocab == NULL)
-         {
-            m_vocab = new ORBVocabulary();
-            m_vocab->loadFromFile(vocabularyFileName);
-         }
-
-         if (m_mapper == NULL)
-         {
-            m_mapper = new MapperServer(*m_vocab, false, 2);
-         }
-
-      }
-
-      OrbSlam2TeamStereo::~OrbSlam2TeamStereo()
-      {
-         delete m_tracker;
-         delete m_frameDrawer;
       }
 
       void OrbSlam2TeamStereo::printPixelFormat(Measurement::ImageMeasurement image)
@@ -306,11 +404,10 @@ namespace Ubitrack {
             m_pushImgDebugL.send(Measurement::ImageMeasurement(t, img.Clone()));
          }
       }
-
-
+      
       void OrbSlam2TeamStereo::start()
       {
-         Component::start();
+         TriggerComponent::start();
 
          cv::FileStorage settings(m_settingsFileName, cv::FileStorage::READ);
          if (m_pushImgDebugL.isConnected())
@@ -324,124 +421,102 @@ namespace Ubitrack {
             m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
          }
       }
-
-
+      
       void OrbSlam2TeamStereo::stop()
       {
-         Component::stop();
+         TriggerComponent::stop();
+
+         delete m_tracker;
+         delete m_frameDrawer;
       }
 
-   }
-} // namespace Ubitrack::Driver
 
-UBITRACK_REGISTER_COMPONENT(Dataflow::ComponentFactory* const cf) {
+      boost::shared_ptr<OrbSlam2TeamComponent> OrbSlam2TeamModule::createComponent(const string& type, const string& name,
+         boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& key, OrbSlam2TeamModule* pModule)
+      {
+         LOG4CPP_INFO(logger, "Class " + type + " created by OrbSlam2TeamModule " );
+         //if ( type == "OrbSlam2TeamStereo" )
+         //   return boost::shared_ptr< OrbSlam2TeamComponent >(new OrbSlam2TeamStereo( name, subgraph, key, pModule ));
+         //else if ( type == "OrbSlam2TeamMono" )
+         //   return boost::shared_ptr< OrbSlam2TeamComponent >(new OrbSlam2TeamMono( name, subgraph, key, module ));
+
+         UBITRACK_THROW( "Class " + type + " not supported by OrbSlam2TeamModule" );
+      }
+
+      OrbSlam2TeamModule::OrbSlam2TeamModule(const MapperKey& key, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory)
+         : Module< MapperKey, TrackerKey, OrbSlam2TeamModule, OrbSlam2TeamComponent >( key, pFactory )
+         , m_vocab(NULL)
+         , m_mapper(NULL)
+      {
+         Graph::UTQLSubgraph::NodePtr nodeMapper;
+         if (subgraph->hasNode("Mapper"))
+            nodeMapper = subgraph->getNode("Mapper");
+         if (!nodeMapper)
+            UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Mapper\" node");
+
+         if ("OrbSlam2TeamStereo" == subgraph->m_DataflowClass)
+            m_mono = false;
+         else if ("OrbSlam2TeamMono" == subgraph->m_DataflowClass)
+            m_mono = true;
+         else
+         {
+            ostringstream s;
+            s << subgraph->m_Name << " pattern with unhandled " << subgraph->m_DataflowClass << " class in OrbSlam2TeamModule";
+            UBITRACK_THROW(s.str());
+         }
+
+         if (nodeMapper->hasAttribute("vocabularyFile"))
+         {
+            nodeMapper->getAttributeData("vocabularyFile", m_vocabularyFilePath);
+            LOG4CPP_INFO(logger, "Vocabulary File: " << m_vocabularyFilePath);
+            if (m_vocabularyFilePath.empty())
+            {
+               ostringstream os;
+               os << "ORB-SLAM2-TEAM Vocabulary File is required, but was not provided!";
+               UBITRACK_THROW(os.str());
+            }
+         }
+         else
+         {
+            UBITRACK_THROW( "Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node" );
+         }
+
+         if (nodeMapper->hasAttribute("maxTrackers"))
+         {
+            nodeMapper->getAttributeData("maxTrackers", m_maxTrackers);
+            LOG4CPP_INFO(logger, "Maximum Trackers: " << m_maxTrackers);
+            if (m_maxTrackers < 1)
+            {
+               ostringstream os;
+               os << "Maximum Trackers must be at least 1!";
+               UBITRACK_THROW(os.str());
+            }
+         }
+         else
+         {
+            UBITRACK_THROW( "Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node" );
+         }
+      }
+
+      void OrbSlam2TeamModule::startModule()
+      {
+         m_vocab = new ORBVocabulary();
+         m_vocab->loadFromFile(m_vocabularyFilePath);
+         m_mapper = new MapperServer(*m_vocab, m_mono, m_maxTrackers);
+      }
+
+      void OrbSlam2TeamModule::stopModule()
+      {
+         delete m_mapper;
+         delete m_vocab;
+      }
+
+   } // namespace Components
+} // namespace Ubitrack
+
+UBITRACK_REGISTER_COMPONENT(Dataflow::ComponentFactory * const cf) {
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamStereo >("OrbSlam2TeamStereo");
+   //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamStereo");
 }
 
 
-//#include <utDataflow/Module.h>
-//
-//// Module Key
-//MAKE_NODEATTRIBUTEKEY_DEFAULT( MapperKey, int, "Origin", "mapperId", 1 );
-//
-//// Component Key
-//class TrackerKey
-//{
-//public:
-//   TrackerKey(boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
-//   {
-//      Graph::UTQLSubgraph::EdgePtr config;
-//
-//      if ( subgraph->hasEdge( "Output" ) )
-//         config = subgraph->getEdge( "Output" );
-//
-//      if ( !config )
-//      {
-//         UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Output\" edge");
-//      }
-//
-//      config->getAttributeData( "artBodyId", m_body );
-//      if ( m_body <= 0 )
-//         UBITRACK_THROW( "Missing or invalid \"artBodyId\" attribute on \"ArtToTarget\" resp. \"fingerHandOutput\" edge" );
-//
-//      std::string typeString = config->getAttributeString( "artType" );
-//      if ( typeString.empty() )
-//      {
-//         // no explicit art target type information. so we assume 6D
-//         m_targetType = target_6d;
-//      }
-//      else
-//      {
-//         if ( typeString == "6d" )
-//            m_targetType = target_6d;
-//         else if ( typeString == "6df" )
-//            m_targetType = target_6d_flystick;
-//         else if ( typeString == "6dmt" )
-//            m_targetType = target_6d_measurement_tool;
-//         else if ( typeString == "6dmtr" )
-//            m_targetType = target_6d_measurement_tool_reference;
-//         else if ( typeString == "3dcloud" )
-//         {
-//            m_targetType = target_3dcloud;
-//            m_body = 0;
-//         }
-//         else if ( typeString == "finger" )
-//         {
-//            m_targetType = target_finger;
-//
-//            /*
-//            Graph::UTQLSubgraph::NodePtr configNode = config->m_Target.lock();
-//
-//            std::string fingerString = configNode->getAttributeString( "finger" );
-//
-//            if (fingerString.length() == 0)
-//            UBITRACK_THROW( "Art finger target without finger id" );
-//
-//            if ( fingerString == "hand" )
-//            m_fingerType = finger_hand;
-//            else if ( fingerString == "thumb" )
-//            m_fingerType = finger_thumb;
-//            else if ( fingerString == "index" )
-//            m_fingerType = finger_index;
-//            else if ( fingerString == "middle" )
-//            m_fingerType = finger_middle;
-//            else
-//            UBITRACK_THROW( "Art finger target with unknown finger type: " + fingerString );
-//            */
-//
-//            std::string fingerSideString = config->getAttributeString( "fingerSide" );
-//            if (fingerSideString.length() == 0)
-//               UBITRACK_THROW( "Art finger target without finger side" );
-//
-//            if ( fingerSideString == "left" )
-//               m_fingerSide = side_left;
-//            else if ( fingerSideString == "right" )
-//               m_fingerSide = side_right;
-//            else
-//               UBITRACK_THROW( "Art finger target with unknown finger side: " + fingerSideString );
-//
-//         }
-//         else
-//            UBITRACK_THROW( "Art target with unknown target type: " + typeString );
-//      }
-//   }
-//};
-//
-//class OrbSlam2TeamTracker; // Component
-//
-//class OrbSlam2TeamMapper
-//   : public Dataflow::Module< MapperKey, TrackerKey, OrbSlam2TeamMapper, OrbSlam2TeamTracker >
-//{
-//public:
-//
-//   // override factory method to create components
-//   // see: component_vision::MarkerTracker
-//   boost::shared_ptr< MarkerTrackerBase > createComponent( const std::string& type, const std::string& name,
-//      boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const ComponentKey& key, ModuleClass* pModule );
-//};
-//
-//class OrbSlam2TeamTracker
-//   : public OrbSlam2TeamMapper::Component
-//{
-//
-//};

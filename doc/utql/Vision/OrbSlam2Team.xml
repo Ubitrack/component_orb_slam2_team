@@ -50,18 +50,29 @@
           </Description>
         </Attribute>
       </Node>
-      <Node name="ImagePlaneDebugL" displayName="Image Plane Debug Left" />
+      <Node name="ImagePlaneDebugL" displayName="Image Plane Debug Left">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+      </Node>
       <Edge name="Output" source="Mapper" destination="CameraL" displayName="Camera Left Pose">
         <Description>
-          <h:p></h:p>
+          <h:p>Transformation from map origin to left camera.</h:p>
         </Description>
         <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
       </Edge>
       <Edge name="OutputError" source="Mapper" destination="CameraL" displayName="Camera Left Error Pose">
         <Description>
-          <h:p></h:p>
+          <h:p>NOT YET IMPLEMENTED. Current pose of left camera from the map origin plus error.</h:p>
         </Description>
         <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="Baseline" source="CameraL" destination="CameraR" displayName="Camera Baseline">
+        <Description>
+          <h:p>Transformation from left camera to right camera.</h:p>
+        </Description>
+        <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
         <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
       </Edge>
       <Edge name="ImageDebugL" source="CameraL" destination="ImagePlaneDebugL" displayName="Image Debug Left">

@@ -84,6 +84,17 @@ namespace Ubitrack {
       // get a logger
       static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Vision.OrbSlam2Team"));
 
+      static Math::Pose CvMatPoseToMathPose(cv::Mat & m)
+      {
+         Math::Matrix<double, 0Ui64, 0Ui64> mathMat = Math::Matrix<double, 0Ui64, 0Ui64>(4, 4);
+         if (!m.empty())
+         {
+            for (short i = 0; i < 4; i++)
+               for (short j = 0; j < 4; j++)
+                  mathMat.at_element(i, j) = m.at<double>(i, j);
+         }
+         return Math::Pose(mathMat);
+      }
 
       class OrbSlam2TeamComponent;
 
@@ -201,6 +212,7 @@ namespace Ubitrack {
          Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
          Dataflow::PushSupplier< Measurement::ErrorPose > m_pushErrorPose;
+         Dataflow::PushSupplier< Measurement::Pose > m_outBaseline;
 
       private:
 
@@ -235,6 +247,7 @@ namespace Ubitrack {
          , m_inImageR("ImageInputR", *this)
          , m_pushImgDebugL("ImageDebugL", *this)
          , m_outPose("Output", *this)
+         , m_outBaseline("Baseline", *this)
          , m_pushErrorPose("OutputError", *this)
          , m_timerTracking("OrbSlam2TeamStereo.Tracking", logger)
          , m_timerAll("OrbSlam2TeamStereo.All", logger)
@@ -387,14 +400,7 @@ namespace Ubitrack {
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_maxDelay?
 
-         Math::Matrix<double, 0Ui64, 0Ui64> mathMat = Math::Matrix<double, 0Ui64, 0Ui64>(4, 4);
-         if (!trackerPose.empty())
-         {
-            for (short i = 0; i < 4; i++)
-               for (short j = 0; j < 4; j++)
-                  mathMat.at_element(0, 0) = trackerPose.at<double>(i, j);
-         }
-         Math::Pose mathPose = Math::Pose(mathMat);
+         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
          m_outPose.send(measurementPose);
 
@@ -420,6 +426,10 @@ namespace Ubitrack {
             m_frameDrawer = NULL;
             m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
          }
+
+         Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
+         Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
+         m_outBaseline.send(measurementPose);
       }
       
       void OrbSlam2TeamStereo::stop()

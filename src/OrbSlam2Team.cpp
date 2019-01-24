@@ -27,62 +27,19 @@
   * @author Joe Bedard <bedard@in.tum.de>
   */
 
-#include <string>
-#include <list>
-#include <iostream>
-#include <iomanip>
-#include <strstream>
-#include <log4cpp/Category.hh>
-
-#include <boost/thread.hpp>
-#include <boost/bind.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/scoped_array.hpp>
-#include <boost/numeric/ublas/blas.hpp>
-
-#include <utDataflow/Module.h>
-#include <utDataflow/PushSupplier.h>
-#include <utDataflow/PullSupplier.h>
-#include <utDataflow/Component.h>
-#include <utDataflow/ComponentFactory.h>
-#include <utMeasurement/Measurement.h>
-#include <utMeasurement/TimestampSync.h>
-#include <utUtil/OS.h>
-#include <utUtil/TracingProvider.h>
-#include <utUtil/BlockTimer.h>
-#include <opencv/cv.h>
-#include <utVision/Image.h>
-#include <utVision/Undistortion.h>
-#include <utDataflow/TriggerComponent.h>
-#include <utDataflow/TriggerInPort.h>
-#include <utDataflow/TriggerOutPort.h>
-#include <utAlgorithm/Homography.h>
-#include <utAlgorithm/PoseEstimation2D3D/PlanarPoseEstimation.h>
-#include <utAlgorithm/Projection.h>
-#include <boost/numeric/ublas/blas.hpp>
-
-#define _USE_MATH_DEFINES
-#include <math.h>
+#include "OrbSlam2Team.h"
 
 // ORB_SLAM2_TEAM includes
 #include <Enums.h>
-#include <ORBVocabulary.h>
-#include <MapperServer.h>
-#include <Tracking.h>
-#include <FrameDrawer.h>
-
-//#include <RotationHelpers.h>
-
-using namespace Ubitrack;
-using namespace Ubitrack::Vision;
 
 namespace Ubitrack {
    namespace Components {
 
+      using namespace Ubitrack;
       using namespace ORB_SLAM2_TEAM;
 
       // get a logger
-      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Vision.OrbSlam2Team"));
+      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Component.OrbSlam2Team"));
 
       static Math::Pose CvMatPoseToMathPose(cv::Mat & m)
       {
@@ -95,147 +52,6 @@ namespace Ubitrack {
          }
          return Math::Pose(mathMat);
       }
-
-      class OrbSlam2TeamComponent;
-
-
-      // Module Key
-      MAKE_NODEATTRIBUTEKEY_DEFAULT( MapperKey, int, "Mapper", "mapperId", 1 );
-
-
-      // Component Key
-      class TrackerKey
-      {
-      public:
-         TrackerKey(boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
-         {
-            // the subgraph should be one of the OrbSlam2Team patterns
-            // the ID should be a unique string such as "pattern_19"
-            m_id = subgraph->m_ID;
-
-            if (m_id.empty())
-            {
-               ostringstream s;
-               s << "Missing or invalid \"id\" attribute on " << subgraph->m_Name << " pattern";
-               UBITRACK_THROW(s.str());
-            }
-         }
-
-         // less than operator for map
-         bool operator<(const TrackerKey & rVal) const
-         {
-            return m_id < rVal.m_id;
-         }
-
-      private:
-         string m_id;
-      };
-
-
-      class OrbSlam2TeamModule
-         : public Dataflow::Module< MapperKey, TrackerKey, OrbSlam2TeamModule, OrbSlam2TeamComponent >
-      {
-      public:
-
-         /** UTQL constructor */
-         OrbSlam2TeamModule( const MapperKey& key, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory );
-
-         virtual void startModule();
-
-         virtual void stopModule();
-
-         // override factory method to create components
-         boost::shared_ptr<OrbSlam2TeamComponent> createComponent( const string& type, const string& name,
-            boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& key, OrbSlam2TeamModule* pModule );
-
-         ORBVocabulary * m_vocab;
-
-         MapperServer * m_mapper;
-
-      private:
-         string m_vocabularyFilePath;
-         bool m_mono;
-         unsigned int m_maxTrackers;
-      };
-
-      // can't use the module-component technique until Module supports TriggerComponent
-      class OrbSlam2TeamComponent
-         : public OrbSlam2TeamModule::Component
-      {
-      public:
-         OrbSlam2TeamComponent(const string& name, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& componentKey, OrbSlam2TeamModule* module)
-            : OrbSlam2TeamModule::Component(name, componentKey, module)
-         {
-            if (module)
-            {
-               m_vocab = module->m_vocab;
-               m_mapper = module->m_mapper;
-            }
-            else
-               UBITRACK_THROW("OrbSlam2TeamComponent::OrbSlam2TeamComponent : module is null");
-         }
-
-      //protected:
-         ORBVocabulary * m_vocab;
-         Mapper * m_mapper;
-      };
-
-
-      /**
-      * @ingroup vision_components
-      *
-      * @par Input Ports
-      * \c Ubitrack::Measurement::ImageMeasurement ImageInputL
-      * \c Ubitrack::Measurement::ImageMeasurement ImageInputR
-      *
-      * @par Output Ports
-      * \c Ubitrack::Measurement::Pose Output
-      * \c Ubitrack::Measurement::ErrorPose OutputError 
-      */
-      class OrbSlam2TeamStereo
-         : public Dataflow::TriggerComponent
-      {
-      public:
-
-         OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
-
-         virtual void start();
-
-         virtual void stop();
-
-         void compute(Measurement::Timestamp t);
-
-      protected:
-
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
-         Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
-         Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
-         Dataflow::PushSupplier< Measurement::ErrorPose > m_pushErrorPose;
-         Dataflow::PushSupplier< Measurement::Pose > m_outBaseline;
-
-      private:
-
-         Util::BlockTimer m_timerTracking;
-         Util::BlockTimer m_timerAll;
-         int m_maxDelay;
-         
-         // additional covariance
-         double m_addErrorX;
-         double m_addErrorY;
-         double m_addErrorZ;
-
-         // for debugging - prints the image format of the given image
-         void printPixelFormat(Measurement::ImageMeasurement image);
-
-         string m_settingsFileName;
-         Tracking * m_tracker;
-         FrameDrawer * m_frameDrawer;
-
-         static boost::shared_ptr<ORBVocabulary> m_vocab;
-         static boost::shared_ptr<Mapper> m_mapper;
-         static unsigned int m_maxTrackers;
-      };
 
       boost::shared_ptr<ORBVocabulary> OrbSlam2TeamStereo::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
       boost::shared_ptr<Mapper> OrbSlam2TeamStereo::m_mapper = boost::shared_ptr<Mapper>(NULL);
@@ -523,10 +339,4 @@ namespace Ubitrack {
 
    } // namespace Components
 } // namespace Ubitrack
-
-UBITRACK_REGISTER_COMPONENT(Dataflow::ComponentFactory * const cf) {
-   cf->registerComponent< Ubitrack::Components::OrbSlam2TeamStereo >("OrbSlam2TeamStereo");
-   //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamStereo");
-}
-
 

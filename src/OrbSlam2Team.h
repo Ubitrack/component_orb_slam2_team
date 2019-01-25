@@ -161,8 +161,46 @@ namespace Ubitrack {
          Mapper * m_mapper;
       };
 
+      class OrbSlam2TeamBase
+      {
+      public:
 
-      class OrbSlam2TeamTracker : public Dataflow::TriggerComponent
+         // used by OrbSlam2TeamRender, does not initialize the mapper
+         OrbSlam2TeamBase();
+
+         // used by OrbSlam2TeamTracker, initializes the mapper
+         OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor);
+
+      protected:
+
+         static boost::shared_ptr<ORBVocabulary> m_vocab;
+         static boost::shared_ptr<Mapper> m_mapper;
+         SensorType m_sensor;
+
+      private:
+
+         static unsigned int m_maxTrackers;
+
+      };
+
+      class OrbSlam2TeamRender : public Dataflow::Component, public OrbSlam2TeamBase
+      {
+      public:
+
+         OrbSlam2TeamRender(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
+
+         Measurement::PositionList pullMapPoints(Ubitrack::Measurement::Timestamp t);
+
+         Measurement::PoseList pullKeyFrames(Ubitrack::Measurement::Timestamp t);
+
+      protected:
+
+         Dataflow::PullSupplier< Measurement::PositionList > m_pullMapPoints;
+         Dataflow::PullSupplier< Measurement::PoseList > m_pullKeyFrames;
+
+      };
+
+      class OrbSlam2TeamTracker : public Dataflow::TriggerComponent, public OrbSlam2TeamBase
       {
       public:
 
@@ -174,17 +212,11 @@ namespace Ubitrack {
 
          virtual void compute(Measurement::Timestamp t) = 0;
 
-         Measurement::PositionList pullMapPoints(Ubitrack::Measurement::Timestamp t);
-
-         Measurement::PoseList pullKeyFrames(Ubitrack::Measurement::Timestamp t);
-
       protected:
 
          Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebug;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
          Dataflow::PushSupplier< Measurement::ErrorPose > m_pushErrorPose;
-         Dataflow::PullSupplier< Measurement::PositionList > m_pullMapPoints;
-         Dataflow::PullSupplier< Measurement::PoseList > m_pullKeyFrames;
 
          Util::BlockTimer m_timerTracking;
          Util::BlockTimer m_timerAll;
@@ -201,14 +233,6 @@ namespace Ubitrack {
          string m_settingsFileName;
          Tracking * m_tracker;
          FrameDrawer * m_frameDrawer;
-
-         static boost::shared_ptr<ORBVocabulary> m_vocab;
-         static boost::shared_ptr<Mapper> m_mapper;
-
-      private:
-
-         SensorType m_sensor;
-         static unsigned int m_maxTrackers;
 
       };
 
@@ -307,6 +331,7 @@ UBITRACK_REGISTER_COMPONENT(Ubitrack::Dataflow::ComponentFactory * const cf) {
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamStereo >("OrbSlam2TeamStereo");
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamMono >("OrbSlam2TeamMono");
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamRgbd >("OrbSlam2TeamRgbd");
+   cf->registerComponent< Ubitrack::Components::OrbSlam2TeamRender >("OrbSlam2TeamRender");
 
    // can't use the module-component technique until Module supports TriggerComponent
    //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamStereo");

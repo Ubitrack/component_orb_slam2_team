@@ -50,30 +50,11 @@
                </Description>
             </Attribute>
          </Node>
-         <Node name="Renderer" displayName="Renderer">
-            <Description>
-               <h:p></h:p>
-            </Description>
-         </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
                <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
             </Description>
          </Node>
-         <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
-            <Description>
-               <h:p>The position of each map point in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
-         <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
-            <Description>
-               <h:p>The pose of each key frame in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
          <Edge name="Output" source="Mapper" destination="CameraL" displayName="Camera Left Pose">
             <Description>
                <h:p>Transformation from map origin to left camera.</h:p>
@@ -179,30 +160,11 @@
                </Description>
             </Attribute>
          </Node>
-         <Node name="Renderer" displayName="Renderer">
-            <Description>
-               <h:p></h:p>
-            </Description>
-         </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
                <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
             </Description>
          </Node>
-         <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
-            <Description>
-               <h:p>The position of each map point in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
-         <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
-            <Description>
-               <h:p>The pose of each key frame in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
          <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
             <Description>
                <h:p>Transformation from map origin to camera.</h:p>
@@ -308,30 +270,11 @@
                </Description>
             </Attribute>
          </Node>
-         <Node name="Renderer" displayName="Renderer">
-            <Description>
-               <h:p></h:p>
-            </Description>
-         </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
                <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
             </Description>
          </Node>
-         <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
-            <Description>
-               <h:p>The position of each map point in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
-         <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
-            <Description>
-               <h:p>The pose of each key frame in the shared map.</h:p>
-            </Description>
-            <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
-         </Edge>
          <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
             <Description>
                <h:p>Transformation from map origin to camera.</h:p>
@@ -398,6 +341,61 @@
                <h:p>Square root of the z-axis covariance that will be added to error pose.</h:p>
             </Description>
          </Attribute>
+      </DataflowConfiguration>
+   </Pattern>
+
+   <Pattern name="OrbSlam2TeamRender" displayName="ORB-SLAM2-TEAM Renderer">
+      <Description>
+         <h:p>
+            Rendering component for other components that are based on the ORB-SLAM2-TEAM library.
+         </h:p>
+      </Description>
+      <Output>
+         <Node name="Mapper" displayName="Mapper Origin">
+            <Attribute name="mapperId" displayName="Mapper ID" min="1" max="20" default="1" xsi:type="IntAttributeDeclarationType">
+               <Description>
+                  <p xmlns="http://www.w3.org/1999/xhtml">Unique identifier for the Mapper</p>
+               </Description>
+            </Attribute>
+            <Attribute name="vocabularyFile" default="" displayName="Vocabulary File" xsi:type="PathAttributeDeclarationType">
+               <Description>
+                  <h:p>
+                     Required: Path and file name of the vocabulary file. For example: <h:code>ORB_SLAM2_TEAM/Vocabulary/ORBvoc.bin</h:code>
+                  </h:p>
+               </Description>
+            </Attribute>
+            <Attribute name="maxTrackers" displayName="Maximum Tracker Quantity" min="1" max="10" default="1" xsi:type="IntAttributeDeclarationType">
+               <Description>
+                  <p xmlns="http://www.w3.org/1999/xhtml">Maximum number of trackers in the SRG</p>
+               </Description>
+            </Attribute>
+         </Node>
+         <Node name="Renderer" displayName="Renderer">
+            <Description>
+               <h:p></h:p>
+            </Description>
+         </Node>
+         <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
+            <Description>
+               <h:p>The position of each map point in the shared map.</h:p>
+            </Description>
+            <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
+            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+         </Edge>
+         <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
+            <Description>
+               <h:p>The pose of each key frame in the shared map.</h:p>
+            </Description>
+            <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
+            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+         </Edge>
+      </Output>
+
+      <Constraints>
+      </Constraints>
+
+      <DataflowConfiguration>
+         <UbitrackLib class="OrbSlam2TeamRender" />
       </DataflowConfiguration>
    </Pattern>
 

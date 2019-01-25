@@ -53,40 +53,15 @@ namespace Ubitrack {
          return Math::Pose(mathMat);
       }
 
-      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamTracker::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
-      boost::shared_ptr<Mapper> OrbSlam2TeamTracker::m_mapper = boost::shared_ptr<Mapper>(NULL);
-      unsigned int OrbSlam2TeamTracker::m_maxTrackers = 0;
+      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamBase::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
+      boost::shared_ptr<Mapper> OrbSlam2TeamBase::m_mapper = boost::shared_ptr<Mapper>(NULL);
+      unsigned int OrbSlam2TeamBase::m_maxTrackers = 0;
 
-      OrbSlam2TeamTracker::OrbSlam2TeamTracker(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
-         : Dataflow::TriggerComponent(sName, subgraph)
-         , m_sensor(sensor)
-         , m_pushImgDebug("ImageDebug", *this)
-         , m_outPose("Output", *this)
-         , m_pushErrorPose("OutputError", *this)
-         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamTracker::pullMapPoints, this, _1))
-         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamTracker::pullKeyFrames, this, _1))
-         , m_timerTracking("OrbSlam2TeamTracker.Tracking", logger)
-         , m_timerAll("OrbSlam2TeamTracker.All", logger)
-         , m_maxDelay(30)
-         , m_addErrorX(0.0)
-         , m_addErrorY(0.0)
-         , m_addErrorZ(0.0)
-         , m_tracker(NULL)
+      OrbSlam2TeamBase::OrbSlam2TeamBase() {}
+
+      OrbSlam2TeamBase::OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
+         : m_sensor(sensor)
       {
-         subgraph->m_DataflowAttributes.getAttributeData("maxDelay", m_maxDelay);
-
-         if (subgraph->m_DataflowAttributes.hasAttribute("settingsFile"))
-         {
-            m_settingsFileName = subgraph->m_DataflowAttributes.getAttributeString("settingsFile");
-            LOG4CPP_INFO(logger, "Settings File: " << m_settingsFileName);
-         }
-         else
-         {
-            ostringstream os;
-            os << "ORB-SLAM2-TEAM Settings File is required, but was not provided!";
-            UBITRACK_THROW(os.str());
-         }
-
          if (!m_mapper)
          {
             Graph::UTQLSubgraph::NodePtr nodeMapper;
@@ -133,6 +108,44 @@ namespace Ubitrack {
 
             m_mapper = boost::shared_ptr<Mapper>(new MapperServer(*m_vocab, sensor == SensorType::MONOCULAR, m_maxTrackers));
          }
+      }
+
+      OrbSlam2TeamRender::OrbSlam2TeamRender(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+         : Dataflow::Component(sName)
+         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamRender::pullMapPoints, this, _1))
+         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamRender::pullKeyFrames, this, _1))
+      {
+
+      }
+
+      OrbSlam2TeamTracker::OrbSlam2TeamTracker(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
+         : Dataflow::TriggerComponent(sName, subgraph)
+         , OrbSlam2TeamBase(sName, subgraph, sensor)
+         , m_pushImgDebug("ImageDebug", *this)
+         , m_outPose("Output", *this)
+         , m_pushErrorPose("OutputError", *this)
+         , m_timerTracking("OrbSlam2TeamTracker.Tracking", logger)
+         , m_timerAll("OrbSlam2TeamTracker.All", logger)
+         , m_maxDelay(30)
+         , m_addErrorX(0.0)
+         , m_addErrorY(0.0)
+         , m_addErrorZ(0.0)
+         , m_tracker(NULL)
+      {
+         subgraph->m_DataflowAttributes.getAttributeData("maxDelay", m_maxDelay);
+
+         if (subgraph->m_DataflowAttributes.hasAttribute("settingsFile"))
+         {
+            m_settingsFileName = subgraph->m_DataflowAttributes.getAttributeString("settingsFile");
+            LOG4CPP_INFO(logger, "Settings File: " << m_settingsFileName);
+         }
+         else
+         {
+            ostringstream os;
+            os << "ORB-SLAM2-TEAM Settings File is required, but was not provided!";
+            UBITRACK_THROW(os.str());
+         }
+
       }
 
       OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
@@ -200,26 +213,28 @@ namespace Ubitrack {
          }
       }
 
-      Measurement::PositionList OrbSlam2TeamTracker::pullMapPoints(Ubitrack::Measurement::Timestamp t)
+      Measurement::PositionList OrbSlam2TeamRender::pullMapPoints(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PositionList posList(t);
-         for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
-         {
-            cv::Mat wPos = pMP->GetWorldPos();
-            Math::Vector3d v3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
-            posList->push_back(v3d);
-         }
+         if (m_mapper)
+            for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
+            {
+               cv::Mat wPos = pMP->GetWorldPos();
+               Math::Vector3d v3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
+               posList->push_back(v3d);
+            }
          return posList;
       }
 
-      Measurement::PoseList OrbSlam2TeamTracker::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
+      Measurement::PoseList OrbSlam2TeamRender::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PoseList posList(t);
-         for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
-         {
-            Math::Pose pose = CvMatPoseToMathPose(pKF->GetPose());
-            posList->push_back(pose);
-         }
+         if (m_mapper)
+            for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
+            {
+               Math::Pose pose = CvMatPoseToMathPose(pKF->GetPose());
+               posList->push_back(pose);
+            }
          return posList;
       }
 

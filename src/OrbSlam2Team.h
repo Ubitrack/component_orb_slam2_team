@@ -174,9 +174,9 @@ namespace Ubitrack {
 
          virtual void compute(Measurement::Timestamp t) = 0;
 
-         Measurement::PositionList pullMapPoints( Ubitrack::Measurement::Timestamp t );
+         Measurement::PositionList pullMapPoints(Ubitrack::Measurement::Timestamp t);
 
-         Measurement::PoseList pullKeyFrames( Ubitrack::Measurement::Timestamp t );
+         Measurement::PoseList pullKeyFrames(Ubitrack::Measurement::Timestamp t);
 
       protected:
 

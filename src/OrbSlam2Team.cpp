@@ -63,8 +63,8 @@ namespace Ubitrack {
          , m_pushImgDebug("ImageDebug", *this)
          , m_outPose("Output", *this)
          , m_pushErrorPose("OutputError", *this)
-         , m_pullMapPoints( "MapPoints", *this, boost::bind( &OrbSlam2TeamBase::pullMapPoints, this, _1 ) )
-         , m_pullKeyFrames( "KeyFrames", *this, boost::bind( &OrbSlam2TeamBase::pullKeyFrames, this, _1 ) )
+         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamBase::pullMapPoints, this, _1))
+         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamBase::pullKeyFrames, this, _1))
          , m_timerTracking("OrbSlam2TeamBase.Tracking", logger)
          , m_timerAll("OrbSlam2TeamBase.All", logger)
          , m_maxDelay(30)
@@ -93,7 +93,7 @@ namespace Ubitrack {
             if (subgraph->hasNode("Mapper"))
                nodeMapper = subgraph->getNode("Mapper");
             if (!nodeMapper)
-               UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Mapper\" node");
+               UBITRACK_THROW("OrbSlam2Team Pattern is missing \"Mapper\" node");
 
             string vocabularyFilePath;
             if (nodeMapper->hasAttribute("vocabularyFile"))
@@ -109,7 +109,7 @@ namespace Ubitrack {
             }
             else
             {
-               UBITRACK_THROW( "Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node" );
+               UBITRACK_THROW("Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node");
             }
 
             m_vocab = boost::shared_ptr<ORBVocabulary>(new ORBVocabulary());
@@ -128,7 +128,7 @@ namespace Ubitrack {
             }
             else
             {
-               UBITRACK_THROW( "Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node" );
+               UBITRACK_THROW("Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node");
             }
 
             m_mapper = boost::shared_ptr<Mapper>(new MapperServer(*m_vocab, sensor == SensorType::MONOCULAR, m_maxTrackers));
@@ -200,7 +200,7 @@ namespace Ubitrack {
          }
       }
 
-      Measurement::PositionList OrbSlam2TeamBase::pullMapPoints( Ubitrack::Measurement::Timestamp t )
+      Measurement::PositionList OrbSlam2TeamBase::pullMapPoints(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PositionList posList(t);
          for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
@@ -212,7 +212,7 @@ namespace Ubitrack {
          return posList;
       }
 
-      Measurement::PoseList OrbSlam2TeamBase::pullKeyFrames( Ubitrack::Measurement::Timestamp t )
+      Measurement::PoseList OrbSlam2TeamBase::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PoseList posList(t);
          for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
@@ -414,17 +414,17 @@ namespace Ubitrack {
       boost::shared_ptr<OrbSlam2TeamComponent> OrbSlam2TeamModule::createComponent(const string& type, const string& name,
          boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const TrackerKey& key, OrbSlam2TeamModule* pModule)
       {
-         LOG4CPP_INFO(logger, "Class " + type + " created by OrbSlam2TeamModule " );
+         LOG4CPP_INFO(logger, "Class " + type + " created by OrbSlam2TeamModule ");
          //if ( type == "OrbSlam2TeamStereo" )
          //   return boost::shared_ptr< OrbSlam2TeamComponent >(new OrbSlam2TeamStereo( name, subgraph, key, pModule ));
          //else if ( type == "OrbSlam2TeamMono" )
          //   return boost::shared_ptr< OrbSlam2TeamComponent >(new OrbSlam2TeamMono( name, subgraph, key, module ));
 
-         UBITRACK_THROW( "Class " + type + " not supported by OrbSlam2TeamModule" );
+         UBITRACK_THROW("Class " + type + " not supported by OrbSlam2TeamModule");
       }
 
       OrbSlam2TeamModule::OrbSlam2TeamModule(const MapperKey& key, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory)
-         : Module< MapperKey, TrackerKey, OrbSlam2TeamModule, OrbSlam2TeamComponent >( key, pFactory )
+         : Module< MapperKey, TrackerKey, OrbSlam2TeamModule, OrbSlam2TeamComponent >(key, pFactory)
          , m_vocab(NULL)
          , m_mapper(NULL)
       {
@@ -432,7 +432,7 @@ namespace Ubitrack {
          if (subgraph->hasNode("Mapper"))
             nodeMapper = subgraph->getNode("Mapper");
          if (!nodeMapper)
-            UBITRACK_THROW( "OrbSlam2Team Pattern is missing \"Mapper\" node");
+            UBITRACK_THROW("OrbSlam2Team Pattern is missing \"Mapper\" node");
 
          if ("OrbSlam2TeamStereo" == subgraph->m_DataflowClass)
             m_mono = false;
@@ -458,7 +458,7 @@ namespace Ubitrack {
          }
          else
          {
-            UBITRACK_THROW( "Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node" );
+            UBITRACK_THROW("Missing or invalid \"vocabularyFile\" attribute on \"Mapper\" node");
          }
 
          if (nodeMapper->hasAttribute("maxTrackers"))
@@ -474,7 +474,7 @@ namespace Ubitrack {
          }
          else
          {
-            UBITRACK_THROW( "Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node" );
+            UBITRACK_THROW("Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node");
          }
       }
 

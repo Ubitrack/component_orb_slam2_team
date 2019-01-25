@@ -39,7 +39,7 @@ namespace Ubitrack {
       using namespace ORB_SLAM2_TEAM;
 
       // get a logger
-      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Component.OrbSlam2Team"));
+      static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Component.Vision.OrbSlam2Team"));
 
       static Math::Pose CvMatPoseToMathPose(cv::Mat & m)
       {
@@ -53,20 +53,20 @@ namespace Ubitrack {
          return Math::Pose(mathMat);
       }
 
-      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamStereo::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
-      boost::shared_ptr<Mapper> OrbSlam2TeamStereo::m_mapper = boost::shared_ptr<Mapper>(NULL);
-      unsigned int OrbSlam2TeamStereo::m_maxTrackers = 0;
+      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamBase::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
+      boost::shared_ptr<Mapper> OrbSlam2TeamBase::m_mapper = boost::shared_ptr<Mapper>(NULL);
+      unsigned int OrbSlam2TeamBase::m_maxTrackers = 0;
 
-      OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+      OrbSlam2TeamBase::OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
          : Dataflow::TriggerComponent(sName, subgraph)
-         , m_inImageL("ImageInputL", *this)
-         , m_inImageR("ImageInputR", *this)
-         , m_pushImgDebugL("ImageDebugL", *this)
+         , m_sensor(sensor)
+         , m_pushImgDebug("ImageDebug", *this)
          , m_outPose("Output", *this)
-         , m_outBaseline("Baseline", *this)
          , m_pushErrorPose("OutputError", *this)
-         , m_timerTracking("OrbSlam2TeamStereo.Tracking", logger)
-         , m_timerAll("OrbSlam2TeamStereo.All", logger)
+         , m_pullMapPoints( "MapPoints", *this, boost::bind( &OrbSlam2TeamBase::pullMapPoints, this, _1 ) )
+         , m_pullKeyFrames( "KeyFrames", *this, boost::bind( &OrbSlam2TeamBase::pullKeyFrames, this, _1 ) )
+         , m_timerTracking("OrbSlam2TeamBase.Tracking", logger)
+         , m_timerAll("OrbSlam2TeamBase.All", logger)
          , m_maxDelay(30)
          , m_addErrorX(0.0)
          , m_addErrorY(0.0)
@@ -131,12 +131,36 @@ namespace Ubitrack {
                UBITRACK_THROW( "Missing or invalid \"maxTrackers\" attribute on \"Mapper\" node" );
             }
 
-            m_mapper = boost::shared_ptr<Mapper>(new MapperServer(*m_vocab, false, m_maxTrackers));
+            m_mapper = boost::shared_ptr<Mapper>(new MapperServer(*m_vocab, sensor == SensorType::MONOCULAR, m_maxTrackers));
          }
+      }
+
+      OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+         : OrbSlam2TeamBase(sName, subgraph, SensorType::STEREO)
+         , m_inImageL("ImageInputL", *this)
+         , m_inImageR("ImageInputR", *this)
+         , m_outBaseline("Baseline", *this)
+      {
 
       }
 
-      void OrbSlam2TeamStereo::printPixelFormat(Measurement::ImageMeasurement image)
+      OrbSlam2TeamMono::OrbSlam2TeamMono(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+         : OrbSlam2TeamBase(sName, subgraph, SensorType::MONOCULAR)
+         , m_inImage("ImageInput", *this)
+      {
+
+      }
+
+      OrbSlam2TeamRgbd::OrbSlam2TeamRgbd(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
+         : OrbSlam2TeamBase(sName, subgraph, SensorType::RGBD)
+         , m_inImageRgb("ImageInput", *this)
+         , m_inImageD("ImageInputD", *this)
+         , m_outBaseline("Baseline", *this)
+      {
+         
+      }
+
+      void OrbSlam2TeamBase::printPixelFormat(Measurement::ImageMeasurement image)
       {
          using Ubitrack::Vision::Image;
          switch (image->pixelFormat())
@@ -174,6 +198,29 @@ namespace Ubitrack {
          default:
             break;
          }
+      }
+
+      Measurement::PositionList OrbSlam2TeamBase::pullMapPoints( Ubitrack::Measurement::Timestamp t )
+      {
+         Measurement::PositionList posList(t);
+         for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
+         {
+            cv::Mat wPos = pMP->GetWorldPos();
+            Math::Vector3d v3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
+            posList->push_back(v3d);
+         }
+         return posList;
+      }
+
+      Measurement::PoseList OrbSlam2TeamBase::pullKeyFrames( Ubitrack::Measurement::Timestamp t )
+      {
+         Measurement::PoseList posList(t);
+         for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
+         {
+            Math::Pose pose = CvMatPoseToMathPose(pKF->GetPose());
+            posList->push_back(pose);
+         }
+         return posList;
       }
 
       void OrbSlam2TeamStereo::compute(Measurement::Timestamp t)
@@ -220,35 +267,142 @@ namespace Ubitrack {
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
          m_outPose.send(measurementPose);
 
-         if (m_pushImgDebugL.isConnected())
+         if (m_pushImgDebug.isConnected())
          {
             Vision::Image img(m_frameDrawer->DrawFrame());
-            m_pushImgDebugL.send(Measurement::ImageMeasurement(t, img.Clone()));
+            m_pushImgDebug.send(Measurement::ImageMeasurement(t, img.Clone()));
          }
       }
       
-      void OrbSlam2TeamStereo::start()
+      void OrbSlam2TeamMono::compute(Measurement::Timestamp t)
+      {
+         UBITRACK_TIME(m_timerAll);
+
+         Measurement::ImageMeasurement inImage = m_inImage.get();
+         printPixelFormat(inImage);
+
+         cv::Mat matImage;
+         if (inImage->origin() == 0) {
+            matImage = inImage->Mat();
+         }
+         else {
+            // the input image is flipped vertically
+            cv::flip(inImage->Mat(), matImage, 0);
+            //LOG4CPP_WARN(logger, "Input image is flipped. Consider flipping in the driver to improve performance.");
+         }
+
+         Measurement::Timestamp before;
+         Measurement::Timestamp after;
+         cv::Mat trackerPose;
+         {
+            UBITRACK_TIME(m_timerTracking);
+
+            // pass the image to ORB-SLAM2-TEAM
+            before = Measurement::now();
+            trackerPose = m_tracker->GrabImageMonocular(matImage, t);
+            after = Measurement::now();
+         }
+         Measurement::Timestamp diff = (after - before) / 1000000l;
+         // do something with the time difference? m_maxDelay?
+
+         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
+         Measurement::Pose measurementPose = Measurement::Pose(inImage.time(), mathPose);
+         m_outPose.send(measurementPose);
+
+         if (m_pushImgDebug.isConnected())
+         {
+            Vision::Image img(m_frameDrawer->DrawFrame());
+            m_pushImgDebug.send(Measurement::ImageMeasurement(t, img.Clone()));
+         }
+      }
+
+      void OrbSlam2TeamRgbd::compute(Measurement::Timestamp t)
+      {
+         UBITRACK_TIME(m_timerAll);
+
+         Measurement::ImageMeasurement inImageRgb = m_inImageRgb.get();
+         Measurement::ImageMeasurement inImageD = m_inImageD.get();
+         printPixelFormat(inImageRgb);
+
+         cv::Mat matImageRgb, matImageD;
+         if (inImageRgb->origin() == 0) {
+            matImageRgb = inImageRgb->Mat();
+         }
+         else {
+            // the input image is flipped vertically
+            cv::flip(inImageRgb->Mat(), matImageRgb, 0);
+            //LOG4CPP_WARN(logger, "RGB input image is flipped. Consider flipping in the driver to improve performance.");
+         }
+         if (inImageD->origin() == 0) {
+            matImageD = inImageD->Mat();
+         }
+         else {
+            // the input image is flipped vertically
+            cv::flip(inImageD->Mat(), matImageD, 0);
+            //LOG4CPP_WARN(logger, "Depth input image is flipped. Consider flipping in the driver to improve performance.");
+         }
+
+         Measurement::Timestamp before;
+         Measurement::Timestamp after;
+         cv::Mat trackerPose;
+         {
+            UBITRACK_TIME(m_timerTracking);
+
+            // pass the image to ORB-SLAM2-TEAM
+            before = Measurement::now();
+            trackerPose = m_tracker->GrabImageRGBD(matImageRgb, matImageD, t);
+            after = Measurement::now();
+         }
+         Measurement::Timestamp diff = (after - before) / 1000000l;
+         // do something with the time difference? m_maxDelay?
+
+         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
+         Measurement::Pose measurementPose = Measurement::Pose(inImageRgb.time(), mathPose);
+         m_outPose.send(measurementPose);
+
+         if (m_pushImgDebug.isConnected())
+         {
+            Vision::Image img(m_frameDrawer->DrawFrame());
+            m_pushImgDebug.send(Measurement::ImageMeasurement(t, img.Clone()));
+         }
+      }
+
+      void OrbSlam2TeamBase::start()
       {
          TriggerComponent::start();
 
          cv::FileStorage settings(m_settingsFileName, cv::FileStorage::READ);
-         if (m_pushImgDebugL.isConnected())
+         if (m_pushImgDebug.isConnected())
          {
             m_frameDrawer = new FrameDrawer(settings);
-            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, SensorType::STEREO);
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, m_frameDrawer, NULL, m_sensor);
          }
          else
          {
             m_frameDrawer = NULL;
-            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, SensorType::STEREO);
+            m_tracker = new Tracking(settings, *m_vocab, *m_mapper, NULL, NULL, m_sensor);
          }
+      }
+
+      void OrbSlam2TeamStereo::start()
+      {
+         OrbSlam2TeamBase::start();
 
          Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
          Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
          m_outBaseline.send(measurementPose);
       }
       
-      void OrbSlam2TeamStereo::stop()
+      void OrbSlam2TeamRgbd::start()
+      {
+         OrbSlam2TeamBase::start();
+
+         Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
+         Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
+         m_outBaseline.send(measurementPose);
+      }
+
+      void OrbSlam2TeamBase::stop()
       {
          TriggerComponent::stop();
 

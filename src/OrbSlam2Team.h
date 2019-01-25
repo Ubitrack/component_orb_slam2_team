@@ -162,41 +162,29 @@ namespace Ubitrack {
       };
 
 
-      /**
-      * @ingroup vision_components
-      *
-      * @par Input Ports
-      * \c Ubitrack::Measurement::ImageMeasurement ImageInputL
-      * \c Ubitrack::Measurement::ImageMeasurement ImageInputR
-      *
-      * @par Output Ports
-      * \c Ubitrack::Measurement::Pose Output
-      * \c Ubitrack::Measurement::ErrorPose OutputError
-      * \c Ubitrack::Measurement::Pose Baseline
-      */
-      class OrbSlam2TeamStereo
-         : public Dataflow::TriggerComponent
+      class OrbSlam2TeamBase : public Dataflow::TriggerComponent
       {
       public:
 
-         OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
+         OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor);
 
          virtual void start();
 
          virtual void stop();
 
-         virtual void compute(Measurement::Timestamp t);
+         virtual void compute(Measurement::Timestamp t) = 0;
+
+         Measurement::PositionList pullMapPoints( Ubitrack::Measurement::Timestamp t );
+
+         Measurement::PoseList pullKeyFrames( Ubitrack::Measurement::Timestamp t );
 
       protected:
 
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
-         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
-         Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebugL;
+         Dataflow::PushSupplier< Measurement::ImageMeasurement > m_pushImgDebug;
          Dataflow::TriggerOutPort< Measurement::Pose > m_outPose;
          Dataflow::PushSupplier< Measurement::ErrorPose > m_pushErrorPose;
-         Dataflow::PushSupplier< Measurement::Pose > m_outBaseline;
-
-      private:
+         Dataflow::PullSupplier< Measurement::PositionList > m_pullMapPoints;
+         Dataflow::PullSupplier< Measurement::PoseList > m_pullKeyFrames;
 
          Util::BlockTimer m_timerTracking;
          Util::BlockTimer m_timerAll;
@@ -216,7 +204,99 @@ namespace Ubitrack {
 
          static boost::shared_ptr<ORBVocabulary> m_vocab;
          static boost::shared_ptr<Mapper> m_mapper;
+
+      private:
+
+         SensorType m_sensor;
          static unsigned int m_maxTrackers;
+
+      };
+
+
+      /**
+      * @ingroup vision_components
+      *
+      * @par Input Ports
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInputL
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInputR
+      *
+      * @par Output Ports
+      * \c Ubitrack::Measurement::Pose Output
+      * \c Ubitrack::Measurement::ErrorPose OutputError
+      * \c Ubitrack::Measurement::Pose Baseline
+      */
+      class OrbSlam2TeamStereo : public OrbSlam2TeamBase
+      {
+      public:
+
+         OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
+
+         virtual void start();
+
+         virtual void compute(Measurement::Timestamp t);
+
+      protected:
+
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageL;
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageR;
+         Dataflow::PushSupplier< Measurement::Pose > m_outBaseline;
+
+      };
+
+
+      /**
+      * @ingroup vision_components
+      *
+      * @par Input Ports
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInput
+      *
+      * @par Output Ports
+      * \c Ubitrack::Measurement::Pose Output
+      * \c Ubitrack::Measurement::ErrorPose OutputError
+      */
+      class OrbSlam2TeamMono : public OrbSlam2TeamBase
+      {
+      public:
+
+         OrbSlam2TeamMono(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
+
+         virtual void compute(Measurement::Timestamp t);
+
+      protected:
+
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImage;
+
+      };
+
+
+      /**
+      * @ingroup vision_components
+      *
+      * @par Input Ports
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInput
+      * \c Ubitrack::Measurement::ImageMeasurement ImageInputD
+      *
+      * @par Output Ports
+      * \c Ubitrack::Measurement::Pose Output
+      * \c Ubitrack::Measurement::ErrorPose OutputError
+      * \c Ubitrack::Measurement::Pose Baseline
+      */
+      class OrbSlam2TeamRgbd : public OrbSlam2TeamBase
+      {
+      public:
+
+         OrbSlam2TeamRgbd(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
+
+         virtual void start();
+
+         virtual void compute(Measurement::Timestamp t);
+
+      protected:
+
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageRgb;
+         Dataflow::TriggerInPort< Measurement::ImageMeasurement > m_inImageD;
+         Dataflow::PushSupplier< Measurement::Pose > m_outBaseline;
+
       };
 
    } // namespace Components
@@ -225,7 +305,13 @@ namespace Ubitrack {
 
 UBITRACK_REGISTER_COMPONENT(Ubitrack::Dataflow::ComponentFactory * const cf) {
    cf->registerComponent< Ubitrack::Components::OrbSlam2TeamStereo >("OrbSlam2TeamStereo");
+   cf->registerComponent< Ubitrack::Components::OrbSlam2TeamMono >("OrbSlam2TeamMono");
+   cf->registerComponent< Ubitrack::Components::OrbSlam2TeamRgbd >("OrbSlam2TeamRgbd");
+
+   // can't use the module-component technique until Module supports TriggerComponent
    //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamStereo");
+   //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamMono");
+   //cf->registerModule< Ubitrack::Components::OrbSlam2TeamModule >("OrbSlam2TeamRgbd");
 }
 
 

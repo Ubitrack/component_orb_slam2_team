@@ -9,7 +9,7 @@
 	<Pattern name="OrbSlam2TeamStereo" displayName="ORB-SLAM2-TEAM Stereo">
 		<Description>
 			<h:p>
-				
+				Cooperative SLAM component for stereo cameras based on the ORB-SLAM2-TEAM library.
 			</h:p>
 		</Description>
 		<Input>
@@ -50,11 +50,30 @@
           </Description>
         </Attribute>
       </Node>
-      <Node name="ImagePlaneDebugL" displayName="Image Plane Debug Left">
+      <Node name="Renderer" displayName="Renderer">
+        <Description>
+          <h:p></h:p>
+        </Description>
+      </Node>
+      <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
         <Description>
           <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
         </Description>
       </Node>
+      <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
+        <Description>
+          <h:p>The position of each map point in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
+        <Description>
+          <h:p>The pose of each key frame in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
       <Edge name="Output" source="Mapper" destination="CameraL" displayName="Camera Left Pose">
         <Description>
           <h:p>Transformation from map origin to left camera.</h:p>
@@ -75,7 +94,7 @@
         <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
         <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
       </Edge>
-      <Edge name="ImageDebugL" source="CameraL" destination="ImagePlaneDebugL" displayName="Image Debug Left">
+      <Edge name="ImageDebug" source="CameraL" destination="ImagePlaneDebug" displayName="Image Debug">
         <Description>
           <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
         </Description>
@@ -115,6 +134,262 @@
          </Attribute>
       </DataflowConfiguration>
    </Pattern>
+
+  <Pattern name="OrbSlam2TeamMono" displayName="ORB-SLAM2-TEAM Monocular">
+    <Description>
+      <h:p>
+        Cooperative SLAM component for monocular cameras based on the ORB-SLAM2-TEAM library.
+      </h:p>
+    </Description>
+    <Input>
+      <Node name="Camera" displayName="Camera" />
+      <Node name="ImagePlane" displayName="Image Plane" />
+      <Edge name="ImageInput" source="Camera" destination="ImagePlane" displayName="Image Input">
+        <Description>
+          <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+        </Description>
+        <Predicate>type=='Image'</Predicate>
+      </Edge>
+    </Input>
+    <Output>
+      <Node name="Mapper" displayName="Mapper Origin">
+        <Attribute name="mapperId" displayName="Mapper ID" min="1" max="20" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Unique identifier for the Mapper</p>
+          </Description>
+        </Attribute>
+        <Attribute name="vocabularyFile" default="" displayName="Vocabulary File" xsi:type="PathAttributeDeclarationType">
+          <Description>
+            <h:p>
+              Required: Path and file name of the vocabulary file. For example: <h:code>ORB_SLAM2_TEAM/Vocabulary/ORBvoc.bin</h:code>
+            </h:p>
+          </Description>
+        </Attribute>
+        <Attribute name="maxTrackers" displayName="Maximum Tracker Quantity" min="1" max="10" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Maximum number of trackers in the SRG</p>
+          </Description>
+        </Attribute>
+      </Node>
+      <Node name="Renderer" displayName="Renderer">
+        <Description><h:p></h:p></Description>
+      </Node>
+      <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+      </Node>
+      <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
+        <Description>
+          <h:p>The position of each map point in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
+        <Description>
+          <h:p>The pose of each key frame in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
+        <Description>
+          <h:p>Transformation from map origin to camera.</h:p>
+        </Description>
+        <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="OutputError" source="Mapper" destination="Camera" displayName="Camera Error Pose">
+        <Description>
+          <h:p>NOT YET IMPLEMENTED. Current pose of camera from the map origin plus error.</h:p>
+        </Description>
+        <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="ImageDebug" source="Camera" destination="ImagePlaneDebug" displayName="Image Debug">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+        <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+    </Output>
+
+    <Constraints>
+      <TriggerGroup>
+        <Edge edge-ref="ImageInput"/>
+        <Edge edge-ref="Output"/>
+      </TriggerGroup>
+    </Constraints>
+
+    <DataflowConfiguration>
+      <UbitrackLib class="OrbSlam2TeamMono" />
+      <Attribute name="settingsFile" default="" displayName="Settings File" xsi:type="PathAttributeDeclarationType">
+        <Description>
+          <h:p>
+            Required: Path and file name of the settings file. For example: <h:code>ORB_SLAM2_TEAM/Examples/Monocular/EuRoC.yaml</h:code>
+          </h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
+        <Description>
+          <h:p>Maximum Delay in ms</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the x-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorY" displayName="y-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the y-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorZ" displayName="z-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the z-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+    </DataflowConfiguration>
+  </Pattern>
+
+  <Pattern name="OrbSlam2TeamRgbd" displayName="ORB-SLAM2-TEAM RGB-D">
+    <Description>
+      <h:p>
+        Cooperative SLAM component for RGB-D cameras based on the ORB-SLAM2-TEAM library.
+      </h:p>
+    </Description>
+    <Input>
+      <Node name="Camera" displayName="Camera" />
+      <Node name="ImagePlane" displayName="Image Plane" />
+      <Node name="CameraD" displayName="Camera Depth" />
+      <Node name="ImagePlaneD" displayName="Image Plane Depth" />
+      <Edge name="ImageInput" source="Camera" destination="ImagePlane" displayName="Image Input">
+        <Description>
+          <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+        </Description>
+        <Predicate>type=='Image'</Predicate>
+      </Edge>
+      <Edge name="ImageInputD" source="CameraD" destination="ImagePlaneD" displayName="Image Input Depth">
+        <Description>
+          <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+        </Description>
+        <Predicate>type=='Image'</Predicate>
+      </Edge>
+    </Input>
+    <Output>
+      <Node name="Mapper" displayName="Mapper Origin">
+        <Attribute name="mapperId" displayName="Mapper ID" min="1" max="20" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Unique identifier for the Mapper</p>
+          </Description>
+        </Attribute>
+        <Attribute name="vocabularyFile" default="" displayName="Vocabulary File" xsi:type="PathAttributeDeclarationType">
+          <Description>
+            <h:p>
+              Required: Path and file name of the vocabulary file. For example: <h:code>ORB_SLAM2_TEAM/Vocabulary/ORBvoc.bin</h:code>
+            </h:p>
+          </Description>
+        </Attribute>
+        <Attribute name="maxTrackers" displayName="Maximum Tracker Quantity" min="1" max="10" default="1" xsi:type="IntAttributeDeclarationType">
+          <Description>
+            <p xmlns="http://www.w3.org/1999/xhtml">Maximum number of trackers in the SRG</p>
+          </Description>
+        </Attribute>
+      </Node>
+      <Node name="Renderer" displayName="Renderer">
+        <Description>
+          <h:p></h:p>
+        </Description>
+      </Node>
+      <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+      </Node>
+      <Edge name="MapPoints" source="Mapper" destination="Renderer" displayName="Map Points">
+        <Description>
+          <h:p>The position of each map point in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
+        <Description>
+          <h:p>The pose of each key frame in the shared map.</h:p>
+        </Description>
+        <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
+        <Description>
+          <h:p>Transformation from map origin to camera.</h:p>
+        </Description>
+        <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="OutputError" source="Mapper" destination="Camera" displayName="Camera Error Pose">
+        <Description>
+          <h:p>NOT YET IMPLEMENTED. Current pose of camera from the map origin plus error.</h:p>
+        </Description>
+        <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="Baseline" source="Camera" destination="CameraD" displayName="Camera Baseline">
+        <Description>
+          <h:p>Transformation from (color) camera to depth camera.</h:p>
+        </Description>
+        <Attribute name="type" value="6D" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+      <Edge name="ImageDebug" source="Camera" destination="ImagePlaneDebug" displayName="Image Debug">
+        <Description>
+          <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+        </Description>
+        <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+        <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+      </Edge>
+    </Output>
+
+    <Constraints>
+      <TriggerGroup>
+        <Edge edge-ref="ImageInput"/>
+        <Edge edge-ref="ImageInputD"/>
+        <Edge edge-ref="Output"/>
+      </TriggerGroup>
+    </Constraints>
+
+    <DataflowConfiguration>
+      <UbitrackLib class="OrbSlam2TeamRgbd" />
+      <Attribute name="settingsFile" default="" displayName="Settings File" xsi:type="PathAttributeDeclarationType">
+        <Description>
+          <h:p>
+            Required: Path and file name of the settings file. For example: <h:code>ORB_SLAM2_TEAM/Examples/RGB-D/TUM1.yaml</h:code>
+          </h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
+        <Description>
+          <h:p>Maximum Delay in ms</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the x-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorY" displayName="y-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the y-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+      <Attribute name="addErrorZ" displayName="z-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
+        <Description>
+          <h:p>Square root of the z-axis covariance that will be added to error pose.</h:p>
+        </Description>
+      </Attribute>
+    </DataflowConfiguration>
+  </Pattern>
 
 
    <!-- Attribute declarations -->

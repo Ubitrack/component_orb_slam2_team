@@ -53,20 +53,20 @@ namespace Ubitrack {
          return Math::Pose(mathMat);
       }
 
-      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamBase::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
-      boost::shared_ptr<Mapper> OrbSlam2TeamBase::m_mapper = boost::shared_ptr<Mapper>(NULL);
-      unsigned int OrbSlam2TeamBase::m_maxTrackers = 0;
+      boost::shared_ptr<ORBVocabulary> OrbSlam2TeamTracker::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
+      boost::shared_ptr<Mapper> OrbSlam2TeamTracker::m_mapper = boost::shared_ptr<Mapper>(NULL);
+      unsigned int OrbSlam2TeamTracker::m_maxTrackers = 0;
 
-      OrbSlam2TeamBase::OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
+      OrbSlam2TeamTracker::OrbSlam2TeamTracker(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
          : Dataflow::TriggerComponent(sName, subgraph)
          , m_sensor(sensor)
          , m_pushImgDebug("ImageDebug", *this)
          , m_outPose("Output", *this)
          , m_pushErrorPose("OutputError", *this)
-         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamBase::pullMapPoints, this, _1))
-         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamBase::pullKeyFrames, this, _1))
-         , m_timerTracking("OrbSlam2TeamBase.Tracking", logger)
-         , m_timerAll("OrbSlam2TeamBase.All", logger)
+         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamTracker::pullMapPoints, this, _1))
+         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamTracker::pullKeyFrames, this, _1))
+         , m_timerTracking("OrbSlam2TeamTracker.Tracking", logger)
+         , m_timerAll("OrbSlam2TeamTracker.All", logger)
          , m_maxDelay(30)
          , m_addErrorX(0.0)
          , m_addErrorY(0.0)
@@ -136,7 +136,7 @@ namespace Ubitrack {
       }
 
       OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
-         : OrbSlam2TeamBase(sName, subgraph, SensorType::STEREO)
+         : OrbSlam2TeamTracker(sName, subgraph, SensorType::STEREO)
          , m_inImageL("ImageInputL", *this)
          , m_inImageR("ImageInputR", *this)
          , m_outBaseline("Baseline", *this)
@@ -145,14 +145,14 @@ namespace Ubitrack {
       }
 
       OrbSlam2TeamMono::OrbSlam2TeamMono(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
-         : OrbSlam2TeamBase(sName, subgraph, SensorType::MONOCULAR)
+         : OrbSlam2TeamTracker(sName, subgraph, SensorType::MONOCULAR)
          , m_inImage("ImageInput", *this)
       {
 
       }
 
       OrbSlam2TeamRgbd::OrbSlam2TeamRgbd(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
-         : OrbSlam2TeamBase(sName, subgraph, SensorType::RGBD)
+         : OrbSlam2TeamTracker(sName, subgraph, SensorType::RGBD)
          , m_inImageRgb("ImageInput", *this)
          , m_inImageD("ImageInputD", *this)
          , m_outBaseline("Baseline", *this)
@@ -160,7 +160,7 @@ namespace Ubitrack {
          
       }
 
-      void OrbSlam2TeamBase::printPixelFormat(Measurement::ImageMeasurement image)
+      void OrbSlam2TeamTracker::printPixelFormat(Measurement::ImageMeasurement image)
       {
          using Ubitrack::Vision::Image;
          switch (image->pixelFormat())
@@ -200,7 +200,7 @@ namespace Ubitrack {
          }
       }
 
-      Measurement::PositionList OrbSlam2TeamBase::pullMapPoints(Ubitrack::Measurement::Timestamp t)
+      Measurement::PositionList OrbSlam2TeamTracker::pullMapPoints(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PositionList posList(t);
          for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
@@ -212,7 +212,7 @@ namespace Ubitrack {
          return posList;
       }
 
-      Measurement::PoseList OrbSlam2TeamBase::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
+      Measurement::PoseList OrbSlam2TeamTracker::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
       {
          Measurement::PoseList posList(t);
          for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
@@ -367,7 +367,7 @@ namespace Ubitrack {
          }
       }
 
-      void OrbSlam2TeamBase::start()
+      void OrbSlam2TeamTracker::start()
       {
          TriggerComponent::start();
 
@@ -386,7 +386,7 @@ namespace Ubitrack {
 
       void OrbSlam2TeamStereo::start()
       {
-         OrbSlam2TeamBase::start();
+         OrbSlam2TeamTracker::start();
 
          Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
          Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
@@ -395,14 +395,14 @@ namespace Ubitrack {
       
       void OrbSlam2TeamRgbd::start()
       {
-         OrbSlam2TeamBase::start();
+         OrbSlam2TeamTracker::start();
 
          Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
          Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
          m_outBaseline.send(measurementPose);
       }
 
-      void OrbSlam2TeamBase::stop()
+      void OrbSlam2TeamTracker::stop()
       {
          TriggerComponent::stop();
 

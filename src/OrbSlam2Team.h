@@ -162,11 +162,11 @@ namespace Ubitrack {
       };
 
 
-      class OrbSlam2TeamBase : public Dataflow::TriggerComponent
+      class OrbSlam2TeamTracker : public Dataflow::TriggerComponent
       {
       public:
 
-         OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor);
+         OrbSlam2TeamTracker(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor);
 
          virtual void start();
 
@@ -225,7 +225,7 @@ namespace Ubitrack {
       * \c Ubitrack::Measurement::ErrorPose OutputError
       * \c Ubitrack::Measurement::Pose Baseline
       */
-      class OrbSlam2TeamStereo : public OrbSlam2TeamBase
+      class OrbSlam2TeamStereo : public OrbSlam2TeamTracker
       {
       public:
 
@@ -254,7 +254,7 @@ namespace Ubitrack {
       * \c Ubitrack::Measurement::Pose Output
       * \c Ubitrack::Measurement::ErrorPose OutputError
       */
-      class OrbSlam2TeamMono : public OrbSlam2TeamBase
+      class OrbSlam2TeamMono : public OrbSlam2TeamTracker
       {
       public:
 
@@ -281,7 +281,7 @@ namespace Ubitrack {
       * \c Ubitrack::Measurement::ErrorPose OutputError
       * \c Ubitrack::Measurement::Pose Baseline
       */
-      class OrbSlam2TeamRgbd : public OrbSlam2TeamBase
+      class OrbSlam2TeamRgbd : public OrbSlam2TeamTracker
       {
       public:
 

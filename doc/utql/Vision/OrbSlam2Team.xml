@@ -19,13 +19,13 @@
          <Node name="ImagePlaneR" displayName="Image Plane Right" />
          <Edge name="ImageInputL" source="CameraL" destination="ImagePlaneL" displayName="Image Input Left">
             <Description>
-               <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+               <h:p>Use the original image (distorted). 3-channel and 4-channel color images automatically converted to gray images.</h:p>
             </Description>
             <Predicate>type=='Image'</Predicate>
          </Edge>
          <Edge name="ImageInputR" source="CameraR" destination="ImagePlaneR" displayName="Image Input Right">
             <Description>
-               <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+               <h:p>Use the original image (distorted). 3-channel and 4-channel color images automatically converted to gray images.</h:p>
             </Description>
             <Predicate>type=='Image'</Predicate>
          </Edge>
@@ -52,7 +52,7 @@
          </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original left image.</h:p>
             </Description>
          </Node>
          <Edge name="Output" source="Mapper" destination="CameraL" displayName="Camera Left Pose">
@@ -77,7 +77,7 @@
          </Edge>
          <Edge name="ImageDebug" source="CameraL" destination="ImagePlaneDebug" displayName="Image Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original left image.</h:p>
             </Description>
             <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
@@ -135,7 +135,7 @@
          <Node name="ImagePlane" displayName="Image Plane" />
          <Edge name="ImageInput" source="Camera" destination="ImagePlane" displayName="Image Input">
             <Description>
-               <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+               <h:p>Use the original image (distorted). 3-channel and 4-channel color images automatically converted to gray images.</h:p>
             </Description>
             <Predicate>type=='Image'</Predicate>
          </Edge>
@@ -162,7 +162,7 @@
          </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original image.</h:p>
             </Description>
          </Node>
          <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
@@ -180,7 +180,7 @@
          </Edge>
          <Edge name="ImageDebug" source="Camera" destination="ImagePlaneDebug" displayName="Image Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original image.</h:p>
             </Description>
             <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
@@ -239,13 +239,13 @@
          <Node name="ImagePlaneD" displayName="Image Plane Depth" />
          <Edge name="ImageInput" source="Camera" destination="ImagePlane" displayName="Image Input">
             <Description>
-               <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+               <h:p>Use the original image (distorted). 3-channel and 4-channel color images automatically converted to gray images.</h:p>
             </Description>
             <Predicate>type=='Image'</Predicate>
          </Edge>
          <Edge name="ImageInputD" source="CameraD" destination="ImagePlaneD" displayName="Image Input Depth">
             <Description>
-               <h:p>3-channel and 4-channel color images automatically converted to gray images</h:p>
+               <h:p>Use the original image (distorted). 3-channel and 4-channel color images automatically converted to gray images.</h:p>
             </Description>
             <Predicate>type=='Image'</Predicate>
          </Edge>
@@ -272,7 +272,7 @@
          </Node>
          <Node name="ImagePlaneDebug" displayName="Image Plane Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original image.</h:p>
             </Description>
          </Node>
          <Edge name="Output" source="Mapper" destination="Camera" displayName="Camera Pose">
@@ -297,7 +297,7 @@
          </Edge>
          <Edge name="ImageDebug" source="Camera" destination="ImagePlaneDebug" displayName="Image Debug">
             <Description>
-               <h:p>The debug image is larger than the input image. It has a footer with tracking status information.</h:p>
+               <h:p>The debug image is larger than the input image. It has a footer with tracking status information. Map point matches are displayed on the original image.</h:p>
             </Description>
             <Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>

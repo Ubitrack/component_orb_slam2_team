@@ -101,7 +101,7 @@
                </h:p>
             </Description>
          </Attribute>
-         <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
+         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
             <Description>
                <h:p>Maximum Delay in ms</h:p>
             </Description>
@@ -203,7 +203,7 @@
                </h:p>
             </Description>
          </Attribute>
-         <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
+         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
             <Description>
                <h:p>Maximum Delay in ms</h:p>
             </Description>
@@ -321,7 +321,7 @@
                </h:p>
             </Description>
          </Attribute>
-         <Attribute name="maxDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
+         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
             <Description>
                <h:p>Maximum Delay in ms</h:p>
             </Description>
@@ -380,14 +380,14 @@
                <h:p>The position of each map point in the shared map.</h:p>
             </Description>
             <Attribute name="type" value="3DPositionList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+            <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
          </Edge>
          <Edge name="KeyFrames" source="Mapper" destination="Renderer" displayName="Key Frames">
             <Description>
                <h:p>The pose of each key frame in the shared map.</h:p>
             </Description>
             <Attribute name="type" value="PoseList" xsi:type="EnumAttributeReferenceType"/>
-            <Attribute name="mode" value="pull" xsi:type="EnumAttributeReferenceType"/>
+            <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
          </Edge>
       </Output>
 
@@ -396,6 +396,11 @@
 
       <DataflowConfiguration>
          <UbitrackLib class="OrbSlam2TeamRender" />
+         <Attribute name="msDelay" default="30" xsi:type="IntAttributeDeclarationType" displayName="Min Delay">
+            <Description>
+               <h:p>Minimum Delay in ms between push events</h:p>
+            </Description>
+         </Attribute>
       </DataflowConfiguration>
    </Pattern>
 

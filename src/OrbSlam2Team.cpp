@@ -57,11 +57,18 @@ namespace Ubitrack {
       boost::shared_ptr<Mapper> OrbSlam2TeamBase::m_mapper = boost::shared_ptr<Mapper>(NULL);
       unsigned int OrbSlam2TeamBase::m_maxTrackers = 0;
 
-      OrbSlam2TeamBase::OrbSlam2TeamBase() {}
+      OrbSlam2TeamBase::OrbSlam2TeamBase(boost::shared_ptr< Graph::UTQLSubgraph > subgraph) 
+         : m_msDelay(30)
+      {
+         subgraph->m_DataflowAttributes.getAttributeData("msDelay", m_msDelay);
+      }
 
       OrbSlam2TeamBase::OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
          : m_sensor(sensor)
+         , m_msDelay(30)
       {
+         subgraph->m_DataflowAttributes.getAttributeData("msDelay", m_msDelay);
+
          if (!m_mapper)
          {
             Graph::UTQLSubgraph::NodePtr nodeMapper;
@@ -112,10 +119,25 @@ namespace Ubitrack {
 
       OrbSlam2TeamRender::OrbSlam2TeamRender(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)
          : Dataflow::Component(sName)
-         , m_pullMapPoints("MapPoints", *this, boost::bind(&OrbSlam2TeamRender::pullMapPoints, this, _1))
-         , m_pullKeyFrames("KeyFrames", *this, boost::bind(&OrbSlam2TeamRender::pullKeyFrames, this, _1))
+         , OrbSlam2TeamBase(subgraph)
+         , m_pushMapPoints("MapPoints", *this)
+         , m_pushKeyFrames("KeyFrames", *this)
+         , m_run(true)
       {
 
+      }
+
+      void OrbSlam2TeamRender::start()
+      {
+         m_thread = new boost::thread(&OrbSlam2TeamRender::pushData, this);
+         LOG4CPP_DEBUG(logger, "created push thread ms==" << m_msDelay);
+      }
+
+      void OrbSlam2TeamRender::stop()
+      {
+         m_run = false;
+         m_thread->join();
+         delete m_thread;
       }
 
       OrbSlam2TeamTracker::OrbSlam2TeamTracker(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor)
@@ -126,14 +148,11 @@ namespace Ubitrack {
          , m_pushErrorPose("OutputError", *this)
          , m_timerTracking("OrbSlam2TeamTracker.Tracking", logger)
          , m_timerAll("OrbSlam2TeamTracker.All", logger)
-         , m_maxDelay(30)
          , m_addErrorX(0.0)
          , m_addErrorY(0.0)
          , m_addErrorZ(0.0)
          , m_tracker(NULL)
       {
-         subgraph->m_DataflowAttributes.getAttributeData("maxDelay", m_maxDelay);
-
          if (subgraph->m_DataflowAttributes.hasAttribute("settingsFile"))
          {
             m_settingsFileName = subgraph->m_DataflowAttributes.getAttributeString("settingsFile");
@@ -213,29 +232,47 @@ namespace Ubitrack {
          }
       }
 
-      Measurement::PositionList OrbSlam2TeamRender::pullMapPoints(Ubitrack::Measurement::Timestamp t)
+      void OrbSlam2TeamRender::pushData()
       {
-         Measurement::PositionList posList(t);
-         if (m_mapper)
-            for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
+         while (m_run)
+         {
+            Measurement::Timestamp start = Measurement::now();
+            if (m_mapper.get())
             {
-               cv::Mat wPos = pMP->GetWorldPos();
-               Math::Vector3d v3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
-               posList->push_back(v3d);
-            }
-         return posList;
-      }
 
-      Measurement::PoseList OrbSlam2TeamRender::pullKeyFrames(Ubitrack::Measurement::Timestamp t)
-      {
-         Measurement::PoseList posList(t);
-         if (m_mapper)
-            for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
-            {
-               Math::Pose pose = CvMatPoseToMathPose(pKF->GetPose());
-               posList->push_back(pose);
+               if (m_pushMapPoints.isConnected())
+               {
+                  Measurement::PositionList posiList(start, vector<Math::Vector3d>());
+                  for (MapPoint * pMP : m_mapper->GetMap().GetAllMapPoints())
+                  {
+                     cv::Mat wPos = pMP->GetWorldPos();
+                     Math::Vector3d v3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
+                     posiList->push_back(v3d);
+                  }
+                  LOG4CPP_DEBUG(logger, "Pushing Map Points size==" << posiList->size());
+                  if (posiList->size() > 0)
+                     m_pushMapPoints.send(posiList);
+               }
+
+               if (m_pushKeyFrames.isConnected())
+               {
+                  Measurement::PoseList poseList(start, vector<Math::Pose>());
+                  for (KeyFrame * pKF : m_mapper->GetMap().GetAllKeyFrames())
+                  {
+                     Math::Pose pose = CvMatPoseToMathPose(pKF->GetPose());
+                     poseList->push_back(pose);
+                  }
+                  LOG4CPP_DEBUG(logger, "Pushing Key Frames size==" << poseList->size());
+                  m_pushKeyFrames.send(poseList);
+               }
             }
-         return posList;
+            Measurement::Timestamp stop = Measurement::now();
+            unsigned long duration = (stop - start) / 1000000l;
+            if (duration < m_msDelay && m_run)
+            {
+               Util::sleep(m_msDelay - duration);
+            }
+         }
       }
 
       void OrbSlam2TeamStereo::compute(Measurement::Timestamp t)
@@ -276,7 +313,7 @@ namespace Ubitrack {
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
-         // do something with the time difference? m_maxDelay?
+         // do something with the time difference? m_msDelay?
 
          Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
@@ -318,7 +355,7 @@ namespace Ubitrack {
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
-         // do something with the time difference? m_maxDelay?
+         // do something with the time difference? m_msDelay?
 
          Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
          Measurement::Pose measurementPose = Measurement::Pose(inImage.time(), mathPose);
@@ -369,7 +406,7 @@ namespace Ubitrack {
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
-         // do something with the time difference? m_maxDelay?
+         // do something with the time difference? m_msDelay?
 
          Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
          Measurement::Pose measurementPose = Measurement::Pose(inImageRgb.time(), mathPose);
@@ -404,7 +441,7 @@ namespace Ubitrack {
          OrbSlam2TeamTracker::start();
 
          Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
-         Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
+         Measurement::Pose measurementPose = Measurement::Pose(Measurement::now(), mathPose);
          m_outBaseline.send(measurementPose);
       }
       
@@ -413,7 +450,7 @@ namespace Ubitrack {
          OrbSlam2TeamTracker::start();
 
          Math::Pose mathPose = CvMatPoseToMathPose(m_tracker->GetBaseline());
-         Measurement::Pose measurementPose = Measurement::Pose(Measurement::Timestamp(), mathPose);
+         Measurement::Pose measurementPose = Measurement::Pose(Measurement::now(), mathPose);
          m_outBaseline.send(measurementPose);
       }
 

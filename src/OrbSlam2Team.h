@@ -33,7 +33,8 @@
 #include <string>
 #include <strstream>
 
-//#include <boost/thread.hpp>
+#include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
 //#include <boost/bind.hpp>
 //#include <boost/scoped_ptr.hpp>
 //#include <boost/scoped_array.hpp>
@@ -166,7 +167,7 @@ namespace Ubitrack {
       public:
 
          // used by OrbSlam2TeamRender, does not initialize the mapper
-         OrbSlam2TeamBase();
+         OrbSlam2TeamBase(boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
 
          // used by OrbSlam2TeamTracker, initializes the mapper
          OrbSlam2TeamBase(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, SensorType sensor);
@@ -176,6 +177,7 @@ namespace Ubitrack {
          static boost::shared_ptr<ORBVocabulary> m_vocab;
          static boost::shared_ptr<Mapper> m_mapper;
          SensorType m_sensor;
+         int m_msDelay;
 
       private:
 
@@ -189,14 +191,21 @@ namespace Ubitrack {
 
          OrbSlam2TeamRender(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph);
 
-         Measurement::PositionList pullMapPoints(Ubitrack::Measurement::Timestamp t);
+         void pushData();
 
-         Measurement::PoseList pullKeyFrames(Ubitrack::Measurement::Timestamp t);
+         virtual void start();
+
+         virtual void stop();
 
       protected:
 
-         Dataflow::PullSupplier< Measurement::PositionList > m_pullMapPoints;
-         Dataflow::PullSupplier< Measurement::PoseList > m_pullKeyFrames;
+         Dataflow::PushSupplier< Measurement::PositionList > m_pushMapPoints;
+         Dataflow::PushSupplier< Measurement::PoseList > m_pushKeyFrames;
+
+      private:
+
+         boost::thread * m_thread;
+         atomic<bool> m_run;
 
       };
 
@@ -220,7 +229,6 @@ namespace Ubitrack {
 
          Util::BlockTimer m_timerTracking;
          Util::BlockTimer m_timerAll;
-         int m_maxDelay;
 
          // additional covariance
          double m_addErrorX;

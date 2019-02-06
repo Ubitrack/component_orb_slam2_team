@@ -52,6 +52,18 @@ namespace Ubitrack {
          }
          return Math::Pose(mathMat);
       }
+      
+      static Math::Matrix3x3d CvMatfToMatrix3x3d(cv::Mat & m)
+      {
+         Math::Matrix3x3d mathMat;
+         if (!m.empty())
+         {
+            for (short i = 0; i < 3; i++)
+               for (short j = 0; j < 3; j++)
+                  mathMat.at_element(i, j) = m.at<float>(i, j);
+         }
+         return mathMat;
+      }
 
       boost::shared_ptr<ORBVocabulary> OrbSlam2TeamBase::m_vocab = boost::shared_ptr<ORBVocabulary>(NULL);
       boost::shared_ptr<Mapper> OrbSlam2TeamBase::m_mapper = boost::shared_ptr<Mapper>(NULL);
@@ -237,7 +249,7 @@ namespace Ubitrack {
          while (m_run)
          {
             Measurement::Timestamp start = Measurement::now();
-            if (m_mapper.get())
+            if (m_mapper)
             {
 
                if (m_pushMapPoints.isConnected())
@@ -303,21 +315,27 @@ namespace Ubitrack {
 
          Measurement::Timestamp before;
          Measurement::Timestamp after;
-         cv::Mat trackerPose;
+         static Frame blank;
+         Frame & f = blank;
          {
             UBITRACK_TIME(m_timerTracking);
 
             // pass the image to ORB-SLAM2-TEAM
             before = Measurement::now();
-            trackerPose = m_tracker->GrabImageStereo(matImageL, matImageR, t);
+            f = m_tracker->GrabImageStereo(matImageL, matImageR, t);
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_msDelay?
 
-         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
+         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw);
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
          m_outPose.send(measurementPose);
+
+         if (m_pushErrorPose.isConnected())
+         {
+            sendErrorPose(t, f, mathPose);
+         }
 
          if (m_pushImgDebug.isConnected())
          {
@@ -345,21 +363,27 @@ namespace Ubitrack {
 
          Measurement::Timestamp before;
          Measurement::Timestamp after;
-         cv::Mat trackerPose;
+         static Frame blank;
+         Frame & f = blank;
          {
             UBITRACK_TIME(m_timerTracking);
 
             // pass the image to ORB-SLAM2-TEAM
             before = Measurement::now();
-            trackerPose = m_tracker->GrabImageMonocular(matImage, t);
+            f = m_tracker->GrabImageMonocular(matImage, t);
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_msDelay?
 
-         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
+         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw);
          Measurement::Pose measurementPose = Measurement::Pose(inImage.time(), mathPose);
          m_outPose.send(measurementPose);
+
+         if (m_pushErrorPose.isConnected())
+         {
+            sendErrorPose(t, f, mathPose);
+         }
 
          if (m_pushImgDebug.isConnected())
          {
@@ -396,21 +420,27 @@ namespace Ubitrack {
 
          Measurement::Timestamp before;
          Measurement::Timestamp after;
-         cv::Mat trackerPose;
+         static Frame blank;
+         Frame & f = blank;
          {
             UBITRACK_TIME(m_timerTracking);
 
             // pass the image to ORB-SLAM2-TEAM
             before = Measurement::now();
-            trackerPose = m_tracker->GrabImageRGBD(matImageRgb, matImageD, t);
+            f = m_tracker->GrabImageRGBD(matImageRgb, matImageD, t);
             after = Measurement::now();
          }
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_msDelay?
 
-         Math::Pose mathPose = CvMatPoseToMathPose(trackerPose);
+         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw);
          Measurement::Pose measurementPose = Measurement::Pose(inImageRgb.time(), mathPose);
          m_outPose.send(measurementPose);
+
+         if (m_pushErrorPose.isConnected())
+         {
+            sendErrorPose(t, f, mathPose);
+         }
 
          if (m_pushImgDebug.isConnected())
          {
@@ -460,6 +490,44 @@ namespace Ubitrack {
 
          delete m_tracker;
          delete m_frameDrawer;
+      }
+
+      void OrbSlam2TeamTracker::sendErrorPose(Measurement::Timestamp & t, Frame & f, Math::Pose & mathPose)
+      {
+         cv::Mat matIntrinsics = f.mFC->K;
+         Math::Matrix3x3d intrinsics = CvMatfToMatrix3x3d(matIntrinsics);
+         double residual = 0.0;
+         Math::Matrix< double, 3, 4 > poseMat(mathPose);
+         Math::Matrix3x4d projectionMatrix = boost::numeric::ublas::prod(intrinsics, poseMat);
+         std::vector<Math::Vector3d> points3d;
+         for (size_t i = 0; i < f.N; i++)
+         {
+            MapPoint * pMP = f.mvpMapPoints[i];
+            cv::Mat wPos = pMP->GetWorldPos();
+            if (pMP)
+            {
+               cv::KeyPoint & kp = f.mvKeysUn[i];
+               Math::Vector3d point3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
+               points3d.push_back(point3d);
+               Math::Vector4d hom(point3d[0], point3d[1], point3d[2], 1.0);
+               Math::Vector3d tmp = boost::numeric::ublas::prod(projectionMatrix, hom);
+               if (tmp[2] == 0.0) LOG4CPP_INFO(logger, "Divide by Zero!!!");
+               tmp = tmp / tmp[2];
+               residual += (tmp[0] - kp.pt.x) * (tmp[0] - kp.pt.x) + (tmp[1] - kp.pt.y) * (tmp[1] - kp.pt.y);
+            }
+         }
+
+         /* If m_sensor == SensorType::STEREO, the images are pre-rectified and the right image is
+            used to calculate the depth of a KeyPoint. Thus, both images will observe the same 
+            world points. It is not clear whether using Algorithm::PoseEstimation2D3D::multipleCameraPoseError
+            is a significant advantage in error pose calculation.
+         */
+
+         Math::Matrix<double, 6, 6> covar = Algorithm::PoseEstimation2D3D::singleCameraPoseError(mathPose, points3d, intrinsics, residual);
+         covar(0, 0) += m_addErrorX * m_addErrorX;
+         covar(1, 1) += m_addErrorY * m_addErrorY;
+         covar(2, 2) += m_addErrorZ * m_addErrorZ;
+         m_pushErrorPose.send(Measurement::ErrorPose(t, Math::ErrorPose(mathPose, covar)));
       }
 
 

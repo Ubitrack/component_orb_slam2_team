@@ -57,7 +57,7 @@
 #include <utDataflow/TriggerInPort.h>
 #include <utDataflow/TriggerOutPort.h>
 //#include <utAlgorithm/Homography.h>
-//#include <utAlgorithm/PoseEstimation2D3D/PlanarPoseEstimation.h>
+#include <utAlgorithm/PoseEstimation2D3D/PlanarPoseEstimation.h>
 //#include <utAlgorithm/Projection.h>
 //#include <boost/numeric/ublas/blas.hpp>
 
@@ -177,7 +177,7 @@ namespace Ubitrack {
          static boost::shared_ptr<ORBVocabulary> m_vocab;
          static boost::shared_ptr<Mapper> m_mapper;
          SensorType m_sensor;
-         int m_msDelay;
+         unsigned int m_msDelay;
 
       private:
 
@@ -241,6 +241,8 @@ namespace Ubitrack {
          string m_settingsFileName;
          Tracking * m_tracker;
          FrameDrawer * m_frameDrawer;
+
+         void sendErrorPose(Measurement::Timestamp & t, Frame & f, Math::Pose & mathPose);
 
       };
 

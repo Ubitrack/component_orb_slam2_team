@@ -41,18 +41,29 @@ namespace Ubitrack {
       // get a logger
       static log4cpp::Category& logger(log4cpp::Category::getInstance("Ubitrack.Component.Vision.OrbSlam2Team"));
 
-      static Math::Pose CvMatPoseToMathPose(cv::Mat & m)
+      static Math::Pose CvMatPoseToMathPose(cv::Mat m)
       {
-         Math::Matrix<double, 0Ui64, 0Ui64> mathMat = Math::Matrix<double, 0Ui64, 0Ui64>(4, 4);
-         if (!m.empty())
-         {
-            for (short i = 0; i < 4; i++)
-               for (short j = 0; j < 4; j++)
-                  mathMat.at_element(i, j) = m.at<double>(i, j);
-         }
-         return Math::Pose(mathMat);
+         //LOG4CPP_INFO(logger, "CvMatPoseToMathPose m == " << m);
+         if (m.empty())
+            return Math::Pose();
+
+         Math::Matrix3x3d rotMat = Math::Matrix3x3d();
+         for (short i = 0; i < 3; i++)
+            for (short j = 0; j < 3; j++)
+               rotMat(i, j) = m.at<float>(i, j);
+
+         double tx = m.at<float>(0, 3);
+         double ty = m.at<float>(1, 3);
+         double tz = m.at<float>(2, 3);
+
+         Math::Quaternion rotTmp = Math::Quaternion(rotMat);
+         Math::Quaternion rot = Math::Quaternion(-rotTmp.x(), rotTmp.y(), -rotTmp.z(), rotTmp.w());
+         Math::Vector3d trans = Math::Vector3d(-tx, ty, tz);
+         Math::Pose mathPose = Math::Pose(rot, trans);
+         //LOG4CPP_INFO(logger, "CvMatPoseToMathPose mathPose == " << mathPose);
+         return mathPose;
       }
-      
+
       static Math::Matrix3x3d CvMatfToMatrix3x3d(cv::Mat & m)
       {
          Math::Matrix3x3d mathMat;
@@ -328,7 +339,7 @@ namespace Ubitrack {
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_msDelay?
 
-         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw);
+         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw.inv());
          Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
          m_outPose.send(measurementPose);
 

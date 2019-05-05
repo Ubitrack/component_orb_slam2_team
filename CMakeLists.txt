@@ -8,7 +8,7 @@ conan_basic_setup(TARGETS)
 include(GNUInstallDirs)
 include(cmake/UbitrackConfig)
 
-# since we depend on it we now we have utvision:
+# since we depend on it we now have utvision:
 set(UBITRACK_COMPILE_DEFINITIONS ${UBITRACK_COMPILE_DEFINITIONS} "HAVE_UTVISION")
 
 add_subdirectory(src)

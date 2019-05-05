@@ -6,10 +6,10 @@
 	xmlns:h="http://www.w3.org/1999/xhtml"
 	xsi:schemaLocation='http://ar.in.tum.de/ubitrack/utql ../../../schema/utql_templates.xsd'>
 
-   <Pattern name="OrbSlam2TeamStereo" displayName="ORB-SLAM2-TEAM Stereo">
+   <Pattern name="OrbSlam2TeamStereo" displayName="ORB-SLAM2-team Stereo">
       <Description>
          <h:p>
-            Cooperative SLAM component for stereo cameras based on the ORB-SLAM2-TEAM library.
+            Cooperative SLAM component for stereo cameras based on the ORB-SLAM2-team library.
          </h:p>
       </Description>
       <Input>
@@ -124,10 +124,10 @@
       </DataflowConfiguration>
    </Pattern>
 
-   <Pattern name="OrbSlam2TeamMono" displayName="ORB-SLAM2-TEAM Monocular">
+   <Pattern name="OrbSlam2TeamMono" displayName="ORB-SLAM2-team Monocular">
       <Description>
          <h:p>
-            Cooperative SLAM component for monocular cameras based on the ORB-SLAM2-TEAM library.
+            Cooperative SLAM component for monocular cameras based on the ORB-SLAM2-team library.
          </h:p>
       </Description>
       <Input>
@@ -226,10 +226,10 @@
       </DataflowConfiguration>
    </Pattern>
 
-   <Pattern name="OrbSlam2TeamRgbd" displayName="ORB-SLAM2-TEAM RGB-D">
+   <Pattern name="OrbSlam2TeamRgbd" displayName="ORB-SLAM2-team RGB-D">
       <Description>
          <h:p>
-            Cooperative SLAM component for RGB-D cameras based on the ORB-SLAM2-TEAM library.
+            Cooperative SLAM component for RGB-D cameras based on the ORB-SLAM2-team library.
          </h:p>
       </Description>
       <Input>
@@ -344,10 +344,10 @@
       </DataflowConfiguration>
    </Pattern>
 
-   <Pattern name="OrbSlam2TeamRender" displayName="ORB-SLAM2-TEAM Renderer">
+   <Pattern name="OrbSlam2TeamRender" displayName="ORB-SLAM2-team Renderer">
       <Description>
          <h:p>
-            Rendering component for other components that are based on the ORB-SLAM2-TEAM library.
+            Rendering component for other components that are based on the ORB-SLAM2-team library.
          </h:p>
       </Description>
       <Output>

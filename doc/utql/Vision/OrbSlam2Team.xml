@@ -63,7 +63,7 @@
          </Edge>
          <Edge name="OutputError" source="Mapper" destination="CameraL" displayName="Camera Left Error Pose">
             <Description>
-               <h:p>NOT YET IMPLEMENTED. Current pose of left camera from the map origin plus error.</h:p>
+               <h:p>Current pose of left camera from the map origin plus error.</h:p>
             </Description>
             <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
@@ -173,7 +173,7 @@
          </Edge>
          <Edge name="OutputError" source="Mapper" destination="Camera" displayName="Camera Error Pose">
             <Description>
-               <h:p>NOT YET IMPLEMENTED. Current pose of camera from the map origin plus error.</h:p>
+               <h:p>Current pose of camera from the map origin plus error.</h:p>
             </Description>
             <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
@@ -283,7 +283,7 @@
          </Edge>
          <Edge name="OutputError" source="Mapper" destination="Camera" displayName="Camera Error Pose">
             <Description>
-               <h:p>NOT YET IMPLEMENTED. Current pose of camera from the map origin plus error.</h:p>
+               <h:p>Current pose of camera from the map origin plus error.</h:p>
             </Description>
             <Attribute name="type" value="6DError" xsi:type="EnumAttributeReferenceType"/>
             <Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>

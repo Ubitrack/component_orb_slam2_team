@@ -339,13 +339,16 @@ namespace Ubitrack {
          Measurement::Timestamp diff = (after - before) / 1000000l;
          // do something with the time difference? m_msDelay?
 
-         Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw.inv());
-         Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
-         m_outPose.send(measurementPose);
-
-         if (m_pushErrorPose.isConnected())
+         if (!f.mTcw.empty())
          {
-            sendErrorPose(t, f, mathPose);
+            Math::Pose mathPose = CvMatPoseToMathPose(f.mTcw.inv());
+            Measurement::Pose measurementPose = Measurement::Pose(inImageL.time(), mathPose);
+            m_outPose.send(measurementPose);
+
+            if (m_pushErrorPose.isConnected())
+            {
+               sendErrorPose(t, f, mathPose);
+            }
          }
 
          if (m_pushImgDebug.isConnected())
@@ -511,19 +514,20 @@ namespace Ubitrack {
          Math::Matrix< double, 3, 4 > poseMat(mathPose);
          Math::Matrix3x4d projectionMatrix = boost::numeric::ublas::prod(intrinsics, poseMat);
          std::vector<Math::Vector3d> points3d;
+         unique_lock<mutex> lock(m_mapper->GetMutexMapUpdate());
          for (size_t i = 0; i < f.N; i++)
          {
             MapPoint * pMP = f.mvpMapPoints[i];
-            cv::Mat wPos = pMP->GetWorldPos();
             if (pMP)
             {
-               cv::KeyPoint & kp = f.mvKeysUn[i];
+               cv::Mat wPos = pMP->GetWorldPos();
                Math::Vector3d point3d(wPos.at<float>(0), wPos.at<float>(1), wPos.at<float>(2));
                points3d.push_back(point3d);
                Math::Vector4d hom(point3d[0], point3d[1], point3d[2], 1.0);
                Math::Vector3d tmp = boost::numeric::ublas::prod(projectionMatrix, hom);
-               if (tmp[2] == 0.0) LOG4CPP_INFO(logger, "Divide by Zero!!!");
+               if (tmp[2] == 0.0) LOG4CPP_ERROR(logger, "Divide by Zero!!!");
                tmp = tmp / tmp[2];
+               cv::KeyPoint & kp = f.mvKeysUn[i];
                residual += (tmp[0] - kp.pt.x) * (tmp[0] - kp.pt.x) + (tmp[1] - kp.pt.y) * (tmp[1] - kp.pt.y);
             }
          }

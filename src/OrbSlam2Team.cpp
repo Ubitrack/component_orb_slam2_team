@@ -187,7 +187,9 @@ namespace Ubitrack {
             os << "ORB-SLAM2-TEAM Settings File is required, but was not provided!";
             UBITRACK_THROW(os.str());
          }
-
+         subgraph->m_DataflowAttributes.getAttributeData("addErrorX", m_addErrorX);
+         subgraph->m_DataflowAttributes.getAttributeData("addErrorY", m_addErrorY);
+         subgraph->m_DataflowAttributes.getAttributeData("addErrorZ", m_addErrorZ);
       }
 
       OrbSlam2TeamStereo::OrbSlam2TeamStereo(const string& sName, boost::shared_ptr< Graph::UTQLSubgraph > subgraph)

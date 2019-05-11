@@ -101,11 +101,6 @@
                </h:p>
             </Description>
          </Attribute>
-         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
-            <Description>
-               <h:p>Maximum Delay in ms</h:p>
-            </Description>
-         </Attribute>
          <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
             <Description>
                <h:p>Square root of the x-axis covariance that will be added to error pose.</h:p>
@@ -201,11 +196,6 @@
                <h:p>
                   Required: Path and file name of the settings file. For example: <h:code>ORB_SLAM2_TEAM/Examples/Monocular/EuRoC.yaml</h:code>
                </h:p>
-            </Description>
-         </Attribute>
-         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
-            <Description>
-               <h:p>Maximum Delay in ms</h:p>
             </Description>
          </Attribute>
          <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
@@ -321,11 +311,6 @@
                </h:p>
             </Description>
          </Attribute>
-         <Attribute name="msDelay" default="20" xsi:type="IntAttributeDeclarationType" displayName="Max Delay">
-            <Description>
-               <h:p>Maximum Delay in ms</h:p>
-            </Description>
-         </Attribute>
          <Attribute name="addErrorX" displayName="x-axis additional error" default="0" min="0" xsi:type="DoubleAttributeDeclarationType">
             <Description>
                <h:p>Square root of the x-axis covariance that will be added to error pose.</h:p>
@@ -396,11 +381,6 @@
 
       <DataflowConfiguration>
          <UbitrackLib class="OrbSlam2TeamRender" />
-         <Attribute name="msDelay" default="30" xsi:type="IntAttributeDeclarationType" displayName="Min Delay">
-            <Description>
-               <h:p>Minimum Delay in ms between push events</h:p>
-            </Description>
-         </Attribute>
       </DataflowConfiguration>
    </Pattern>
 
